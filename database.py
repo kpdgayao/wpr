@@ -27,4 +27,3 @@ def display_data():
     gb.configure_pagination(paginationAutoPageSize=True)
     grid_options = gb.build()
     AgGrid(df, gridOptions=grid_options)
-    
