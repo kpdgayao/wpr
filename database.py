@@ -1,6 +1,6 @@
 import pandas as pd
 import streamlit as st
-from st_aggrid import GridOptionsBuilder, AgGrid
+from st_aggrid import GridOptionsBuilder, AgGrid, DataReturnMode, GridUpdateMode
 
 def save_data(data):
     try:
@@ -27,3 +27,4 @@ def display_data():
     gb.configure_pagination(paginationAutoPageSize=True)
     grid_options = gb.build()
     AgGrid(df, gridOptions=grid_options)
+    
