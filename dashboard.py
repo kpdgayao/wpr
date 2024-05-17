@@ -1,12 +1,16 @@
 import streamlit as st
 from database import load_data, display_data
 import matplotlib.pyplot as plt
+import pandas as pd
 
 # Set page configuration
 st.set_page_config(page_title="CEO Dashboard", page_icon=":bar_chart:", layout="wide")
 
 # Load data
 data = load_data()
+
+# Convert "Productivity Rating" column to numeric
+data["Productivity Rating"] = pd.to_numeric(data["Productivity Rating"].str.split(" - ").str[0], errors="coerce")
 
 # Sidebar filters
 st.sidebar.header("Filters")
