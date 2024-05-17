@@ -158,7 +158,7 @@ if st.session_state['show_productivity_section']:
         value='3 - Productive',
         key='productivity_rating'
     )
-    productivity_suggestions = st.multiselect("Productivity Suggestions", ["More Tools", "More Supervision", "Scheduled Breaks", "Monetary Incentives", "Better Time Management"])
+    productivity_suggestions = st.multiselect("Productivity Suggestions", ["Collaboration with Team Members", "More Tools", "More Supervision", "Better Time Management", "Effective Communication", "Clear goals and Expectations", "Scheduled Breaks", "Monetary Incentives",])
     productivity_details = st.text_area("Please provide more details or examples")
 
     # Add input fields for time and place of productivity
