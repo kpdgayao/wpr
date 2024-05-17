@@ -51,6 +51,8 @@ if 'week_number' not in st.session_state:
     st.session_state['week_number'] = datetime.now().isocalendar()[1]
 if 'show_task_section' not in st.session_state:
     st.session_state['show_task_section'] = False
+if 'show_project_section' not in st.session_state:
+    st.session_state['show_project_section'] = False
 if 'show_productivity_section' not in st.session_state:
     st.session_state['show_productivity_section'] = False
 if 'show_peer_evaluation_section' not in st.session_state:
@@ -100,6 +102,22 @@ if st.session_state['show_task_section']:
         st.markdown(f'<div class="section-header">Welcome, {st.session_state["selected_name"].split("(")[0].strip()}</div>', unsafe_allow_html=True)
         st.write(f"Team: {team}")
 
+        # Display the last 5 responses of the user
+        st.markdown('<div class="section-header">Your Last 5 Responses</div>', unsafe_allow_html=True)
+        user_data = load_data()
+        user_responses = user_data[user_data["Name"] == st.session_state['selected_name']].sort_values("Week Number", ascending=False).head(5)
+        
+        if not user_responses.empty:
+            for idx, response in user_responses.iterrows():
+                st.markdown(f'<div class="subsection-header">Week {response["Week Number"]}</div>', unsafe_allow_html=True)
+                st.write(f"Productivity Rating: {response['Productivity Rating']}")
+                st.write(f"Completed Tasks: {response['Number of Completed Tasks']}")
+                st.write(f"Pending Tasks: {response['Number of Pending Tasks']}")
+                st.write(f"Dropped Tasks: {response['Number of Dropped Tasks']}")
+                st.write("---")
+        else:
+            st.write("No previous responses found.")
+
         # Add input fields for task completion
         st.markdown('<div class="subsection-header">Task Completion</div>', unsafe_allow_html=True)
         num_completed_tasks = st.number_input("Number of Completed Tasks", min_value=0, step=1, value=0)
@@ -142,12 +160,29 @@ if st.session_state['show_task_section']:
         st.write(f"Pending Tasks: {num_pending_tasks} ({pending_percentage:.2f}%)")
         st.write(f"Dropped Tasks: {num_dropped_tasks} ({dropped_percentage:.2f}%)")
 
-        # Add a button to proceed to the productivity section
-        if st.button("Next"):
-            st.session_state['show_productivity_section'] = True
+        # Add a button to proceed to the project section
+        if st.button("Next", key='task_next'):
+            st.session_state['show_project_section'] = True
 
     else:
         st.warning("Please select a valid name from the dropdown.")
+
+if st.session_state['show_project_section']:
+    # Add input fields for projects
+    st.markdown('<div class="section-header">Projects</div>', unsafe_allow_html=True)
+    num_projects = st.number_input("Number of Projects", min_value=0, step=1, value=0)
+    projects = []
+    if num_projects > 0:
+        for i in range(int(num_projects)):
+            project_name = st.text_input(f"Project {i+1} Name", key=f"project_name_{i}")
+            project_completion = st.number_input(f"Project {i+1} Completion (%)", min_value=0, max_value=100, step=1, key=f"project_completion_{i}")
+            projects.append({"name": project_name, "completion": project_completion})
+    else:
+        no_projects = st.checkbox("No Projects", value=True)
+
+    # Add a button to proceed to the productivity section
+    if st.button("Next", key='project_next'):
+        st.session_state['show_productivity_section'] = True
 
 if st.session_state['show_productivity_section']:
     # Add input fields for productivity evaluation
@@ -158,7 +193,7 @@ if st.session_state['show_productivity_section']:
         value='3 - Productive',
         key='productivity_rating'
     )
-    productivity_suggestions = st.multiselect("Productivity Suggestions", ["Collaboration with Team Members", "More Tools", "More Supervision", "Better Time Management", "Effective Communication", "Clear goals and Expectations", "Scheduled Breaks", "Monetary Incentives",])
+    productivity_suggestions = st.multiselect("Productivity Suggestions", ["More Tools", "More Supervision", "Scheduled Breaks", "Monetary Incentives", "Better Time Management"])
     productivity_details = st.text_area("Please provide more details or examples")
 
     # Add input fields for time and place of productivity
@@ -206,6 +241,7 @@ if st.session_state['show_peer_evaluation_section']:
             "Number of Pending Tasks": num_pending_tasks,
             "Dropped Tasks": dropped_tasks,
             "Number of Dropped Tasks": num_dropped_tasks,
+            "Projects": projects if num_projects > 0 else [],
             "Productivity Rating": productivity_rating,
             "Productivity Suggestions": productivity_suggestions,
             "Productivity Details": productivity_details,

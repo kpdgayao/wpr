@@ -66,6 +66,48 @@ st.header("Top Performers")
 top_performers = filtered_data.sort_values("Productivity Rating", ascending=False).head(5)
 st.table(top_performers[["Name", "Team", "Number of Completed Tasks", "Productivity Rating"]])
 
+# Most Highly Rated Employee
+st.header("Most Highly Rated Employee")
+peer_ratings = {}
+for _, row in filtered_data.iterrows():
+    employee = row["Name"]
+    ratings = [int(rating.split(" ")[0]) for rating in row["Peer Ratings"]]
+    if ratings:
+        avg_rating = sum(ratings) / len(ratings)
+        peer_ratings[employee] = avg_rating
+
+if peer_ratings:
+    top_employee = max(peer_ratings, key=peer_ratings.get)
+    top_rating = peer_ratings[top_employee]
+    st.write(f"Employee: {top_employee}")
+    st.write(f"Average Peer Rating: {top_rating:.2f}")
+else:
+    st.write("No peer ratings available.")
+
+# Past Responses
+st.header("Past Responses")
+selected_name = st.selectbox("Select User", data["Name"].unique())
+past_responses = data[data["Name"] == selected_name].sort_values("Week Number", ascending=False).head(5)
+for idx, response in past_responses.iterrows():
+    st.subheader(f"Week {response['Week Number']}")
+    st.write(f"Productivity Rating: {response['Productivity Rating']}")
+    st.write(f"Completed Tasks: {response['Number of Completed Tasks']}")
+    st.write(f"Pending Tasks: {response['Number of Pending Tasks']}")
+    st.write(f"Dropped Tasks: {response['Number of Dropped Tasks']}")
+    st.write("---")
+
+# Projects
+st.header("Projects")
+project_data = filtered_data[filtered_data["Projects"].apply(lambda x: len(x) > 0)]
+if not project_data.empty:
+    for idx, row in project_data.iterrows():
+        st.subheader(row["Name"])
+        for project in row["Projects"]:
+            st.write(f"{project['name']}: {project['completion']}%")
+        st.write("---")
+else:
+    st.write("No projects found.")
+
 # Raw Data
 st.header("Raw Data")
 display_data()
