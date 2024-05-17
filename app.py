@@ -1,6 +1,6 @@
 import streamlit as st
 from datetime import datetime
-from database import save_data
+from database import save_data, load_data, display_data
 
 # Set page title and favicon
 st.set_page_config(page_title="Weekly Progress Report", page_icon=":clipboard:")

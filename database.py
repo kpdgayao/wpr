@@ -1,29 +1,22 @@
-import pandas as pd
 import streamlit as st
-from st_aggrid import GridOptionsBuilder, AgGrid, DataReturnMode, GridUpdateMode
+from supabase import create_client, Client
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+
+url = os.environ.get("SUPABASE_URL")
+key = os.environ.get("SUPABASE_KEY")
+supabase: Client = create_client(url, key)
 
 def save_data(data):
-    try:
-        df = pd.read_csv("wpr_data.csv")
-        df = pd.concat([df, pd.DataFrame([data])], ignore_index=True)
-    except FileNotFoundError:
-        df = pd.DataFrame([data])
-
-    df.to_csv("wpr_data.csv", index=False)
+    supabase.table("wpr_data").insert(data).execute()
 
 def load_data():
-    try:
-        df = pd.read_csv("wpr_data.csv")
-    except FileNotFoundError:
-        df = pd.DataFrame(columns=["Name", "Team", "Week Number", "Year", "Completed Tasks", "Number of Completed Tasks",
-                                   "Pending Tasks", "Number of Pending Tasks", "Dropped Tasks", "Number of Dropped Tasks",
-                                   "Productivity Rating", "Productivity Suggestions", "Productivity Details",
-                                   "Productive Time", "Productive Place"])
-    return df
+    result = supabase.table("wpr_data").select("*").execute()
+    data = result.data
+    return data
 
 def display_data():
-    df = load_data()
-    gb = GridOptionsBuilder.from_dataframe(df)
-    gb.configure_pagination(paginationAutoPageSize=True)
-    grid_options = gb.build()
-    AgGrid(df, gridOptions=grid_options)
+    data = load_data()
+    st.table(data)
