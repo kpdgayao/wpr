@@ -2,6 +2,7 @@ import streamlit as st
 from supabase import create_client, Client
 from dotenv import load_dotenv
 import os
+import pandas as pd
 
 load_dotenv()
 
@@ -15,8 +16,9 @@ def save_data(data):
 def load_data():
     result = supabase.table("wpr_data").select("*").execute()
     data = result.data
-    return data
+    df = pd.DataFrame(data)
+    return df
 
 def display_data():
-    data = load_data()
-    st.table(data)
+    df = load_data()
+    st.dataframe(df)
