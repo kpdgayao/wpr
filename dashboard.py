@@ -71,7 +71,7 @@ st.header("Most Highly Rated Employee")
 peer_ratings = {}
 for _, row in filtered_data.iterrows():
     employee = row["Name"]
-    ratings = [int(rating.split(" ")[0]) for rating in row["Peer Ratings"]]
+    ratings = row.get("Peer Ratings", [])  # Use get() method to handle missing "Peer Ratings" column
     if ratings:
         avg_rating = sum(ratings) / len(ratings)
         peer_ratings[employee] = avg_rating
@@ -98,12 +98,16 @@ for idx, response in past_responses.iterrows():
 
 # Projects
 st.header("Projects")
-project_data = filtered_data[filtered_data["Projects"].apply(lambda x: len(x) > 0)]
+project_data = filtered_data[filtered_data["Projects"].apply(lambda x: len(x) > 0 if isinstance(x, list) else False)]
 if not project_data.empty:
     for idx, row in project_data.iterrows():
         st.subheader(row["Name"])
-        for project in row["Projects"]:
-            st.write(f"{project['name']}: {project['completion']}%")
+        projects = row["Projects"]
+        if isinstance(projects, list):
+            for project in projects:
+                st.write(f"{project['name']}: {project['completion']}%")
+        else:
+            st.write("No project details available")
         st.write("---")
 else:
     st.write("No projects found.")
