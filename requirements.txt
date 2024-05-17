@@ -3,3 +3,4 @@ streamlit-aggrid
 pandas>=1.0.0
 supabase
 python-dotenv
+matplotlib
