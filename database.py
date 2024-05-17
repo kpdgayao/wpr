@@ -5,10 +5,10 @@ from st_aggrid import GridOptionsBuilder, AgGrid, DataReturnMode, GridUpdateMode
 def save_data(data):
     try:
         df = pd.read_csv("wpr_data.csv")
-        df = df.append(data, ignore_index=True)
+        df = pd.concat([df, pd.DataFrame([data])], ignore_index=True)
     except FileNotFoundError:
         df = pd.DataFrame([data])
-    
+
     df.to_csv("wpr_data.csv", index=False)
 
 def load_data():
