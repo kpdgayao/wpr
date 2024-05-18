@@ -72,42 +72,41 @@ st.header("Peer Evaluation Rankings")
 # Extract peer evaluations and flatten the data
 peer_evaluations = pd.json_normalize(filtered_data["Peer_Evaluations"].dropna())
 
-# Calculate the average peer rating for each employee
-employee_ratings = peer_evaluations.groupby(["Peer"])["Rating"].mean().reset_index()
+if not peer_evaluations.empty:
+    # Calculate the average peer rating for each employee
+    employee_ratings = peer_evaluations.groupby(["Peer"])["Rating"].mean().reset_index()
 
-# Merge employee ratings with employee names
-employee_ratings = employee_ratings.merge(filtered_data[["Name"]], left_on="Peer", right_on="Name", how="left")
+    # Merge employee ratings with employee names
+    employee_ratings = employee_ratings.merge(filtered_data[["Name"]], left_on="Peer", right_on="Name", how="left")
 
-# Sort employees based on their average peer rating
-top_rated_employees = employee_ratings.sort_values("Rating", ascending=False)
+    # Sort employees based on their average peer rating
+    top_rated_employees = employee_ratings.sort_values("Rating", ascending=False)
 
-# Display the top-rated employees
-st.table(top_rated_employees[["Name", "Rating"]].head(5))
-
-# Past Responses
-st.header("Past Responses")
-selected_name = st.selectbox("Select User", data["Name"].unique())
-past_responses = data[data["Name"] == selected_name].sort_values("Week Number", ascending=False).head(5)
-for idx, response in past_responses.iterrows():
-    st.subheader(f"Week {response['Week Number']}")
-    st.write(f"Productivity Rating: {response['Productivity Rating']}")
-    st.write(f"Completed Tasks: {response['Number of Completed Tasks']}")
-    st.write(f"Pending Tasks: {response['Number of Pending Tasks']}")
-    st.write(f"Dropped Tasks: {response['Number of Dropped Tasks']}")
-    st.write("---")
+    # Display the top-rated employees
+    st.table(top_rated_employees[["Name", "Rating"]].head(5))
+else:
+    st.write("No peer evaluations available.")
 
 # Projects
 st.header("Projects")
 project_data = filtered_data[filtered_data["Projects"].apply(lambda x: len(x) > 0 if isinstance(x, list) else False)]
+
 if not project_data.empty:
+    # Extract project details and calculate completion percentage
+    projects = pd.json_normalize(project_data["Projects"].explode())
+    projects["Completion"] = projects["completion"].astype(float)
+    project_completion = projects.groupby("name")["Completion"].mean().reset_index()
+
+    # Display project completion table
+    st.subheader("Project Completion")
+    st.table(project_completion)
+
+    # Display project details for each employee
+    st.subheader("Project Details")
     for idx, row in project_data.iterrows():
         st.subheader(row["Name"])
-        projects = row["Projects"]
-        if isinstance(projects, list):
-            for project in projects:
-                st.write(f"{project['name']}: {project['completion']}%")
-        else:
-            st.write("No project details available")
+        employee_projects = pd.DataFrame(row["Projects"])
+        st.table(employee_projects)
         st.write("---")
 else:
     st.write("No projects found.")
