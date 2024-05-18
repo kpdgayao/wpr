@@ -73,11 +73,8 @@ st.header("Peer Evaluation Rankings")
 peer_evaluations = filtered_data["Peer_Evaluations"].dropna().apply(pd.Series)
 
 if not peer_evaluations.empty:
-    # Explode the peer evaluations column
-    peer_evaluations = peer_evaluations.explode("Peer_Evaluations")
-    
-    # Normalize the exploded data
-    peer_evaluations = pd.json_normalize(peer_evaluations["Peer_Evaluations"])
+    # Normalize the peer evaluations data
+    peer_evaluations = pd.json_normalize(peer_evaluations[0])
     
     # Check if "Peer" and "Rating" columns exist
     if "Peer" in peer_evaluations.columns and "Rating" in peer_evaluations.columns:
