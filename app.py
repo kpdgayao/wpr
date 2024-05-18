@@ -1,6 +1,8 @@
 import streamlit as st
 from datetime import datetime
 from database import save_data, load_data, display_data
+import pandas as pd
+import matplotlib.pyplot as plt
 
 # Set page title and favicon
 st.set_page_config(page_title="Weekly Progress Report", page_icon=":clipboard:")
@@ -60,7 +62,7 @@ if 'show_peer_evaluation_section' not in st.session_state:
 
 # Define teams and their members
 teams = {
-    "Business Services Team": ["Abigail Visperas", "Cristian Jay Duque", "Kevin Philip Gayao", "Kurt Lee Gayao", "Maria Luisa Reynante"],
+    "Business Services Team": ["Abigail Visperas", "Cristian Jay Duque", "Kevin Philip Gayao", "Kurt Lee Gayao", "Maria Luisa Reynante", "Jester Pedrosa"],
     "Frontend Team": ["Amiel Bryan Gaudia", "George Libatique", "Joshua Aficial"],
     "Backend Team": ["Jeon Angelo Evangelista", "Katrina Gayao", "Renzo Ducusin"]
 }
@@ -108,13 +110,26 @@ if st.session_state['show_task_section']:
         user_responses = user_data[user_data["Name"] == st.session_state['selected_name']].sort_values("Week Number", ascending=False).head(5)
         
         if not user_responses.empty:
-            for idx, response in user_responses.iterrows():
-                st.markdown(f'<div class="subsection-header">Week {response["Week Number"]}</div>', unsafe_allow_html=True)
-                st.write(f"Productivity Rating: {response['Productivity Rating']}")
-                st.write(f"Completed Tasks: {response['Number of Completed Tasks']}")
-                st.write(f"Pending Tasks: {response['Number of Pending Tasks']}")
-                st.write(f"Dropped Tasks: {response['Number of Dropped Tasks']}")
-                st.write("---")
+            # Create line charts for completed, pending, and dropped tasks
+            fig, ax = plt.subplots(figsize=(10, 6))
+            ax.plot(user_responses["Week Number"], user_responses["Number of Completed Tasks"], marker="o", label="Completed Tasks")
+            ax.plot(user_responses["Week Number"], user_responses["Number of Pending Tasks"], marker="o", label="Pending Tasks")
+            ax.plot(user_responses["Week Number"], user_responses["Number of Dropped Tasks"], marker="o", label="Dropped Tasks")
+            ax.set_xlabel("Week Number")
+            ax.set_ylabel("Number of Tasks")
+            ax.set_title("Task Trends")
+            ax.grid(True)
+            ax.legend()
+            st.pyplot(fig)
+
+            # Display projects for the past week
+            st.markdown('<div class="subsection-header">Projects for the Past Week</div>', unsafe_allow_html=True)
+            past_week_projects = user_responses.iloc[0]["Projects"]
+            if past_week_projects:
+                for project in past_week_projects:
+                    st.write(f"{project['name']}: {project['completion']}%")
+            else:
+                st.write("No projects found for the past week.")
         else:
             st.write("No previous responses found.")
 
@@ -193,7 +208,18 @@ if st.session_state['show_productivity_section']:
         value='3 - Productive',
         key='productivity_rating'
     )
-    productivity_suggestions = st.multiselect("Productivity Suggestions", ["More Tools", "More Supervision", "Scheduled Breaks", "Monetary Incentives", "Better Time Management"])
+    productivity_suggestions = st.multiselect("Productivity Suggestions", [
+        "More Tools",
+        "More Supervision",
+        "Scheduled Breaks",
+        "Monetary Incentives",
+        "Better Time Management",
+        "Improved Communication",
+        "Alignment Meetings",
+        "Collaborative Activities",
+        "Training and Development",
+        "Workload Balancing"
+    ])
     productivity_details = st.text_area("Please provide more details or examples")
 
     # Add input fields for time and place of productivity
@@ -246,7 +272,8 @@ if st.session_state['show_peer_evaluation_section']:
             "Productivity Suggestions": productivity_suggestions,
             "Productivity Details": productivity_details,
             "Productive Time": productive_time,
-            "Productive Place": productive_place
+            "Productive Place": productive_place,
+            "Peer Ratings": list(peer_ratings.values())
         }
         save_data(data)
         st.markdown('<div class="success-message">WPR submitted successfully!</div>', unsafe_allow_html=True)
