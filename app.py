@@ -59,6 +59,8 @@ if 'show_productivity_section' not in st.session_state:
     st.session_state['show_productivity_section'] = False
 if 'show_peer_evaluation_section' not in st.session_state:
     st.session_state['show_peer_evaluation_section'] = False
+if 'submitted' not in st.session_state:
+    st.session_state['submitted'] = False
 
 # Define teams and their members
 teams = {
@@ -258,7 +260,7 @@ if st.session_state['show_peer_evaluation_section']:
         st.write("No peer evaluations provided.")
 
     # Display the entered information and save data
-    if st.button("Submit"):
+    if st.button("Submit") and not st.session_state['submitted']:
         data = {
             "Name": st.session_state['selected_name'],
             "Team": team,
@@ -279,4 +281,5 @@ if st.session_state['show_peer_evaluation_section']:
             "Peer_Evaluations": peer_evaluations_list
         }
         save_data(data)
+        st.session_state['submitted'] = True
         st.markdown('<div class="success-message">WPR submitted successfully!</div>', unsafe_allow_html=True)
