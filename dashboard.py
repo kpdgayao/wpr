@@ -88,7 +88,7 @@ if not peer_evaluations.empty:
         top_rated_employees = employee_ratings.sort_values("Rating", ascending=False)
         
         # Display the top-rated employees
-        st.table(top_rated_employees[["Name", "Rating"]].head(5))
+        st.table(top_rated_employees[["Peer", "Rating"]].head(5))
     else:
         st.write("Peer evaluation data is missing required columns.")
 else:
