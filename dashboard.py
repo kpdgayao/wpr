@@ -73,17 +73,20 @@ st.header("Peer Evaluation Rankings")
 peer_evaluations = pd.json_normalize(filtered_data["Peer_Evaluations"].dropna())
 
 if not peer_evaluations.empty:
-    # Calculate the average peer rating for each employee
-    employee_ratings = peer_evaluations.groupby(["Peer"])["Rating"].mean().reset_index()
+    if "Peer" in peer_evaluations.columns and "Rating" in peer_evaluations.columns:
+        # Calculate the average peer rating for each employee
+        employee_ratings = peer_evaluations.groupby(["Peer"])["Rating"].mean().reset_index()
 
-    # Merge employee ratings with employee names
-    employee_ratings = employee_ratings.merge(filtered_data[["Name"]], left_on="Peer", right_on="Name", how="left")
+        # Merge employee ratings with employee names
+        employee_ratings = employee_ratings.merge(filtered_data[["Name"]], left_on="Peer", right_on="Name", how="left")
 
-    # Sort employees based on their average peer rating
-    top_rated_employees = employee_ratings.sort_values("Rating", ascending=False)
+        # Sort employees based on their average peer rating
+        top_rated_employees = employee_ratings.sort_values("Rating", ascending=False)
 
-    # Display the top-rated employees
-    st.table(top_rated_employees[["Name", "Rating"]].head(5))
+        # Display the top-rated employees
+        st.table(top_rated_employees[["Name", "Rating"]].head(5))
+    else:
+        st.write("Peer evaluation data is missing required columns.")
 else:
     st.write("No peer evaluations available.")
 
