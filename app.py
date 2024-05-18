@@ -273,7 +273,7 @@ if st.session_state['show_peer_evaluation_section']:
             "Productivity Details": productivity_details,
             "Productive Time": productive_time,
             "Productive Place": productive_place,
-            "Peer Ratings": list(peer_ratings.values())
+            "Peer Ratings": ",".join(str(rating) for rating in peer_ratings.values())
         }
         save_data(data)
         st.markdown('<div class="success-message">WPR submitted successfully!</div>', unsafe_allow_html=True)
