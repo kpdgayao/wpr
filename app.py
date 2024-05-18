@@ -247,6 +247,9 @@ if st.session_state['show_peer_evaluation_section']:
         rating = st.select_slider(f"Rate {peer}", options=["1 (Poor)", "2 (Fair)", "3 (Satisfactory)", "4 (Excellent)"], key=f"peer_rating_{peer}")
         peer_ratings[peer] = int(rating.split(" ")[0])  # Extract the numeric rating
 
+    # Convert peer ratings to a list of dictionaries
+    peer_evaluations_list = [{"Peer": peer, "Rating": rating} for peer, rating in peer_ratings.items()]
+
     # Calculate the team overall rating
     if peer_ratings:
         team_overall_rating = sum(peer_ratings.values()) / len(peer_ratings)
@@ -273,7 +276,7 @@ if st.session_state['show_peer_evaluation_section']:
             "Productivity Details": productivity_details,
             "Productive Time": productive_time,
             "Productive Place": productive_place,
-            "Peer Ratings": ",".join(str(rating) for rating in peer_ratings.values())
+            "Peer_Evaluations": peer_evaluations_list
         }
         save_data(data)
         st.markdown('<div class="success-message">WPR submitted successfully!</div>', unsafe_allow_html=True)
