@@ -66,23 +66,24 @@ st.header("Top Performers")
 top_performers = filtered_data.sort_values("Productivity Rating", ascending=False).head(5)
 st.table(top_performers[["Name", "Team", "Number of Completed Tasks", "Productivity Rating"]])
 
-# Most Highly Rated Employee
-st.header("Most Highly Rated Employee")
-peer_ratings = {}
-for _, row in filtered_data.iterrows():
-    employee = row["Name"]
-    ratings = row.get("Peer Ratings", [])  # Use get() method to handle missing "Peer Ratings" column
-    if ratings:
-        avg_rating = sum(ratings) / len(ratings)
-        peer_ratings[employee] = avg_rating
+# Peer Evaluation Rankings
+st.header("Peer Evaluation Rankings")
 
-if peer_ratings:
-    top_employee = max(peer_ratings, key=peer_ratings.get)
-    top_rating = peer_ratings[top_employee]
-    st.write(f"Employee: {top_employee}")
-    st.write(f"Average Peer Rating: {top_rating:.2f}")
-else:
-    st.write("No peer ratings available.")
+# Extract peer evaluations and flatten the data
+peer_evaluations = pd.json_normalize(filtered_data["Peer_Evaluations"].dropna())
+peer_evaluations = peer_evaluations.melt(id_vars=["Name"], var_name="Peer", value_name="Rating")
+
+# Calculate the average peer rating for each employee
+employee_ratings = peer_evaluations.groupby(["Peer"])["Rating"].mean().reset_index()
+
+# Merge employee ratings with employee names
+employee_ratings = employee_ratings.merge(filtered_data[["Name"]], left_on="Peer", right_on="Name")
+
+# Sort employees based on their average peer rating
+top_rated_employees = employee_ratings.sort_values("Rating", ascending=False)
+
+# Display the top-rated employees
+st.table(top_rated_employees[["Name", "Rating"]].head(5))
 
 # Past Responses
 st.header("Past Responses")
