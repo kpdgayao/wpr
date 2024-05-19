@@ -76,6 +76,8 @@ if 'week_number' not in st.session_state:
     st.session_state['week_number'] = datetime.now().isocalendar()[1]
 if 'submitted' not in st.session_state:
     st.session_state['submitted'] = False
+if 'submitted_week' not in st.session_state:
+    st.session_state['submitted_week'] = None
 
 # Define teams and their members
 teams = {
@@ -109,9 +111,9 @@ if week_number != st.session_state['week_number']:
 # Display the entered week number and current year
 st.write(f"Selected Week: Week {st.session_state['week_number']}, {current_year}")
 
-# Add a warning message if the form has already been submitted
-if st.session_state['submitted']:
-    st.markdown('<div class="warning-message">You have already submitted the WPR for this week. Please do not resubmit.</div>', unsafe_allow_html=True)
+# Add a warning message if the form has already been submitted for the selected week
+if st.session_state['submitted'] and st.session_state['submitted_week'] == st.session_state['week_number']:
+    st.markdown('<div class="warning-message">You have already submitted the WPR for this week. Please select a different week to submit a new report.</div>', unsafe_allow_html=True)
 else:
     # Add a button to proceed to the task section
     if st.button("Proceed") and st.session_state['selected_name']:
@@ -167,34 +169,34 @@ else:
         else:
             st.write("No previous responses found.")
 
-        # Add input fields for task completion
+  # Add input fields for task completion
         st.markdown('<div class="subsection-header">Task Completion</div>', unsafe_allow_html=True)
-        num_completed_tasks = st.number_input("Number of Completed Tasks", min_value=0, step=1, value=0)
+        num_completed_tasks = st.number_input("Number of Completed Tasks", min_value=0, step=1, value=0, key='num_completed_tasks')
         completed_tasks = []
         if num_completed_tasks > 0:
             for i in range(int(num_completed_tasks)):
                 task = st.text_input(f"Completed Task {i+1}", key=f"completed_task_{i}")
                 completed_tasks.append(task)
         else:
-            no_completed_tasks = st.checkbox("No Completed Tasks", value=True)
+            no_completed_tasks = st.checkbox("No Completed Tasks", value=True, key='no_completed_tasks')
 
-        num_pending_tasks = st.number_input("Number of Pending Tasks", min_value=0, step=1, value=0)
+        num_pending_tasks = st.number_input("Number of Pending Tasks", min_value=0, step=1, value=0, key='num_pending_tasks')
         pending_tasks = []
         if num_pending_tasks > 0:
             for i in range(int(num_pending_tasks)):
                 task = st.text_input(f"Pending Task {i+1}", key=f"pending_task_{i}")
                 pending_tasks.append(task)
         else:
-            no_pending_tasks = st.checkbox("No Pending Tasks", value=True)
+            no_pending_tasks = st.checkbox("No Pending Tasks", value=True, key='no_pending_tasks')
 
-        num_dropped_tasks = st.number_input("Number of Dropped Tasks", min_value=0, step=1, value=0)
+        num_dropped_tasks = st.number_input("Number of Dropped Tasks", min_value=0, step=1, value=0, key='num_dropped_tasks')
         dropped_tasks = []
         if num_dropped_tasks > 0:
             for i in range(int(num_dropped_tasks)):
                 task = st.text_input(f"Dropped Task {i+1}", key=f"dropped_task_{i}")
                 dropped_tasks.append(task)
         else:
-            no_dropped_tasks = st.checkbox("No Dropped Tasks", value=True)
+            no_dropped_tasks = st.checkbox("No Dropped Tasks", value=True, key='no_dropped_tasks')
 
         # Calculate total tasks and percentages
         total_tasks = num_completed_tasks + num_pending_tasks + num_dropped_tasks
@@ -299,7 +301,8 @@ else:
                             "Productive Time": productive_time,
                             "Productive Place": productive_place,
                             "Peer_Evaluations": peer_evaluations_list
-                        }
-                        save_data(data)
-                        st.session_state['submitted'] = True
-                        st.markdown('<div class="success-message">WPR submitted successfully!</div>', unsafe_allow_html=True)
+                                }
+                    save_data(data)
+                    st.session_state['submitted'] = True
+                    st.session_state['submitted_week'] = st.session_state['week_number']
+                    st.markdown('<div class="success-message">WPR submitted successfully!</div>', unsafe_allow_html=True)
