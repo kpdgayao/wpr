@@ -161,7 +161,7 @@ if st.button("Proceed") and st.session_state['selected_name']:
     completed_tasks = []
     if num_completed_tasks > 0:
         for i in range(int(num_completed_tasks)):
-            task = st.text_input(f"Completed Task {i+1}", key=f"completed_task_{i}")
+            task = st.text_input(f"Completed Task {i+1}", key=f"completed_task_{i}", on_change=lambda: None)
             completed_tasks.append(task)
     else:
         no_completed_tasks = st.checkbox("No Completed Tasks", value=True, key='no_completed_tasks')
@@ -170,7 +170,7 @@ if st.button("Proceed") and st.session_state['selected_name']:
     pending_tasks = []
     if num_pending_tasks > 0:
         for i in range(int(num_pending_tasks)):
-            task = st.text_input(f"Pending Task {i+1}", key=f"pending_task_{i}")
+            task = st.text_input(f"Pending Task {i+1}", key=f"pending_task_{i}", on_change=lambda: None)
             pending_tasks.append(task)
     else:
         no_pending_tasks = st.checkbox("No Pending Tasks", value=True, key='no_pending_tasks')
@@ -179,7 +179,7 @@ if st.button("Proceed") and st.session_state['selected_name']:
     dropped_tasks = []
     if num_dropped_tasks > 0:
         for i in range(int(num_dropped_tasks)):
-            task = st.text_input(f"Dropped Task {i+1}", key=f"dropped_task_{i}")
+            task = st.text_input(f"Dropped Task {i+1}", key=f"dropped_task_{i}", on_change=lambda: None)
             dropped_tasks.append(task)
     else:
         no_dropped_tasks = st.checkbox("No Dropped Tasks", value=True, key='no_dropped_tasks')
