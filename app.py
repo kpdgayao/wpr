@@ -1,8 +1,16 @@
+import os
+import requests
+from dotenv import load_dotenv
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 import streamlit as st
 from datetime import datetime
 from database import save_data, load_data, display_data
 import pandas as pd
 import matplotlib.pyplot as plt
+
+load_dotenv()
 
 # Set page title and favicon
 st.set_page_config(page_title="Weekly Progress Report", page_icon=":clipboard:")
@@ -268,6 +276,8 @@ if st.session_state['show_peer_evaluation_section']:
     else:
         st.write("No peer evaluations provided.")
 
+    user_email = st.text_input("Enter your email address")      
+
     # Display the entered information and save data
     if st.button("Submit") and not st.session_state['submitted']:
         data = {
@@ -290,8 +300,43 @@ if st.session_state['show_peer_evaluation_section']:
             "Peer_Evaluations": peer_evaluations_list
         }
         save_data(data)
+
+        # Format the submission text based on the user's saved data
+        submission_text = f"Name: {data['Name']}\nTeam: {data['Team']}\nWeek Number: {data['Week Number']}\nYear: {data['Year']}\n\nCompleted Tasks: {data['Completed Tasks']}\nNumber of Completed Tasks: {data['Number of Completed Tasks']}\n\nPending Tasks: {data['Pending Tasks']}\nNumber of Pending Tasks: {data['Number of Pending Tasks']}\n\nDropped Tasks: {data['Dropped Tasks']}\nNumber of Dropped Tasks: {data['Number of Dropped Tasks']}\n\nProjects: {data['Projects']}\n\nProductivity Rating: {data['Productivity Rating']}\nProductivity Suggestions: {data['Productivity Suggestions']}\nProductivity Details: {data['Productivity Details']}\nProductive Time: {data['Productive Time']}\nProductive Place: {data['Productive Place']}\n\nPeer Evaluations: {data['Peer_Evaluations']}"
+
+        # Process the submission using Anthropic API
+        anthropic_api_key = os.environ.get("ANTHROPIC_API_KEY")
+        anthropic_api_url = "https://api.anthropic.com/v1/complete"
+        prompt = f"Summarize the following text and provide actionable insights, recommendations, and motivation to the employee:\n\n{submission_text}"
+        headers = {
+            "Content-Type": "application/json",
+            "X-API-Key": anthropic_api_key
+        }
+        payload = {
+            "prompt": prompt,
+            "max_tokens_to_sample": 100
+        }
+        response = requests.post(anthropic_api_url, headers=headers, json=payload)
+        processed_output = response.json()["completion"]
+
+        # Send email to the user
+        email_host = os.environ.get("EMAIL_HOST")
+        email_port = os.environ.get("EMAIL_PORT")
+        email_username = os.environ.get("EMAIL_USERNAME")
+        email_password = os.environ.get("EMAIL_PASSWORD")
+
+        msg = MIMEMultipart()
+        msg["From"] = email_username
+        msg["To"] = user_email
+        msg["Subject"] = "Weekly Progress Report Summary"
+
+        email_body = f"Dear {st.session_state['selected_name']},\n\nThank you for submitting your Weekly Progress Report. Here is a summary of your submission along with some insights and recommendations:\n\n{processed_output}\n\nKeep up the great work!\n\nBest regards,\nYour Organization"
+        msg.attach(MIMEText(email_body, "plain"))
+
+        with smtplib.SMTP(email_host, email_port) as server:
+            server.starttls()
+            server.login(email_username, email_password)
+            server.send_message(msg)
+
         st.session_state['submitted'] = True
-        st.markdown('<div class="success-message">WPR submitted successfully!</div>', unsafe_allow_html=True)
-        
-        # Redirect to IOL's website using JavaScript
-        st.write('<script>window.location.href = "https://www.iol.ph";</script>', unsafe_allow_html=True)
+        st.markdown('<div class="success-message">WPR submitted successfully! Check your email for a summary.</div>', unsafe_allow_html=True)   
