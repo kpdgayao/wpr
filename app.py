@@ -306,14 +306,13 @@ if st.session_state['show_peer_evaluation_section']:
         # Process the submission using Anthropic API
         anthropic_api_key = st.secrets["ANTHROPIC_API_KEY"]
         client = anthropic.Client(api_key=anthropic_api_key)
-        prompt = f"Please summarize the following text and provide actionable insights, recommendations, and motivation to the employee. Your response should be in plain text format, without any special formatting or markup.\n\n{submission_text}"
+        prompt = f"{anthropic.HUMAN_PROMPT} Please summarize the following text and provide actionable insights, recommendations, and motivation to the employee. Your response should be in plain text format, without any special formatting or markup.\n\n{submission_text}{anthropic.AI_PROMPT}"
 
         try:
             response = client.completion(
                 prompt=prompt,
                 model="claude-v1",
                 max_tokens_to_sample=1024,
-                stop_sequences=["\n\nHuman:"]
             )
             processed_output = response["completion"]
         except anthropic.APIError as e:
