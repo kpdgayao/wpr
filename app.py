@@ -339,4 +339,6 @@ if st.session_state['show_peer_evaluation_section']:
             server.send_message(msg)
 
         st.session_state['submitted'] = True
-        st.markdown('<div class="success-message">WPR submitted successfully! Check your email for a summary.</div>', unsafe_allow_html=True)   
+
+        st.markdown('<div class="success-message">WPR submitted successfully! Check your email for a summary.</div>', unsafe_allow_html=True)  
+
