@@ -303,23 +303,26 @@ if st.session_state['show_peer_evaluation_section']:
 
         # Process the submission using Anthropic API
         anthropic_api_key = st.secrets["ANTHROPIC_API_KEY"]
-        anthropic_api_url = "https://api.anthropic.com/v1/complete"
-        prompt = f"Summarize the following text and provide actionable insights, recommendations, and motivation to the employee:\n\n{submission_text}"
+        anthropic_api_url = "https://api.anthropic.com/v1/messages"
         headers = {
             "Content-Type": "application/json",
-            "X-API-Key": anthropic_api_key
+            "x-api-key": anthropic_api_key,
+            "anthropic-version": "2023-06-01"
         }
         payload = {
-            "prompt": prompt,
-            "max_tokens_to_sample": 100
+            "model": "claude-3-opus-20240229",
+            "max_tokens": 1024,
+            "messages": [
+                {"role": "user", "content": f"Summarize the following text and provide actionable insights, recommendations, and motivation to the employee:\n\n{submission_text}"}
+            ]
         }
 
         try:
             response = requests.post(anthropic_api_url, headers=headers, json=payload)
             response.raise_for_status()  # Raise an exception for 4xx or 5xx status codes
             response_data = response.json()
-            if "completion" in response_data:
-                processed_output = response_data["completion"]
+            if "content" in response_data:
+                processed_output = response_data["content"][0]["text"]
             else:
                 processed_output = "I apologize, but I couldn't generate a summary at the moment. Please try again later."
         except requests.exceptions.RequestException as e:
