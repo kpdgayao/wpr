@@ -9,6 +9,7 @@ from database import save_data, load_data, display_data
 import pandas as pd
 import matplotlib.pyplot as plt
 from mailjet_rest import Client
+import anthropic
 
 # Set page title and favicon
 st.set_page_config(page_title="Weekly Progress Report", page_icon=":clipboard:")
@@ -304,30 +305,20 @@ if st.session_state['show_peer_evaluation_section']:
 
         # Process the submission using Anthropic API
         anthropic_api_key = st.secrets["ANTHROPIC_API_KEY"]
-        anthropic_api_url = "https://api.anthropic.com/v1/complete"
-        headers = {
-            "Content-Type": "application/json",
-            "X-API-Key": anthropic_api_key
-        }
+        client = anthropic.Client(api_key=anthropic_api_key)
         prompt = f"Please summarize the following text and provide actionable insights, recommendations, and motivation to the employee. Your response should be in plain text format, without any special formatting or markup.\n\n{submission_text}"
-        payload = {
-            "model": "claude-v1",
-            "prompt": prompt,
-            "max_tokens_to_sample": 1024,
-            "stop_sequences": ["\n\nHuman:"]
-        }
 
         try:
-            response = requests.post(anthropic_api_url, headers=headers, json=payload)
-            response.raise_for_status()  # Raise an exception for 4xx or 5xx status codes
-            response_data = response.json()
-            processed_output = response_data["completion"]
-        except requests.exceptions.RequestException as e:
+            response = client.completion(
+                prompt=prompt,
+                model="claude-v1",
+                max_tokens_to_sample=1024,
+                stop_sequences=["\n\nHuman:"]
+            )
+            processed_output = response["completion"]
+        except anthropic.APIError as e:
             processed_output = f"Error occurred while processing the request. Please try again later. Error details: {str(e)}"
             st.error(f"Error occurred while processing the request. Please try again later. Error details: {str(e)}")
-        except KeyError as e:
-            processed_output = "I apologize, but I couldn't generate a summary at the moment. Please try again later."
-            st.error("I apologize, but I couldn't generate a summary at the moment. Please try again later.")
         except Exception as e:
             processed_output = f"An unexpected error occurred. Please try again later. Error details: {str(e)}"
             st.error(f"An unexpected error occurred. Please try again later. Error details: {str(e)}")
