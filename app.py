@@ -276,5 +276,3 @@ if st.button("Proceed") and st.session_state['selected_name']:
         save_data(data)
         st.markdown('<div class="success-message">WPR submitted successfully!</div>', unsafe_allow_html=True)
         
-        # Refresh the page after 3 seconds
-        st.experimental_rerun()
