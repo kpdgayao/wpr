@@ -313,7 +313,8 @@ if st.session_state['show_peer_evaluation_section']:
             "model": "claude-3-opus-20240229",
             "max_tokens": 1024,
             "messages": [
-                {"role": "user", "content": f"Summarize the following text and provide actionable insights, recommendations, and motivation to the employee:\n\n{submission_text}"}
+                {"role": "system", "content": "Please summarize the following text and provide actionable insights, recommendations, and motivation to the employee. Your response should be in plain text format, without any special formatting or markup."},
+                {"role": "user", "content": submission_text}
             ]
         }
 
@@ -321,10 +322,7 @@ if st.session_state['show_peer_evaluation_section']:
             response = requests.post(anthropic_api_url, headers=headers, json=payload)
             response.raise_for_status()  # Raise an exception for 4xx or 5xx status codes
             response_data = response.json()
-            if "content" in response_data:
-                processed_output = response_data["content"][0]["text"]
-            else:
-                processed_output = "I apologize, but I couldn't generate a summary at the moment. Please try again later."
+            processed_output = response_data["completion"]
         except requests.exceptions.RequestException as e:
             processed_output = f"Error occurred while processing the request. Please try again later. Error details: {str(e)}"
         except KeyError as e:
