@@ -1,6 +1,5 @@
 import os
 import requests
-from dotenv import load_dotenv
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -9,8 +8,6 @@ from datetime import datetime
 from database import save_data, load_data, display_data
 import pandas as pd
 import matplotlib.pyplot as plt
-
-load_dotenv()
 
 # Set page title and favicon
 st.set_page_config(page_title="Weekly Progress Report", page_icon=":clipboard:")
@@ -305,32 +302,46 @@ if st.session_state['show_peer_evaluation_section']:
         submission_text = f"Name: {data['Name']}\nTeam: {data['Team']}\nWeek Number: {data['Week Number']}\nYear: {data['Year']}\n\nCompleted Tasks: {data['Completed Tasks']}\nNumber of Completed Tasks: {data['Number of Completed Tasks']}\n\nPending Tasks: {data['Pending Tasks']}\nNumber of Pending Tasks: {data['Number of Pending Tasks']}\n\nDropped Tasks: {data['Dropped Tasks']}\nNumber of Dropped Tasks: {data['Number of Dropped Tasks']}\n\nProjects: {data['Projects']}\n\nProductivity Rating: {data['Productivity Rating']}\nProductivity Suggestions: {data['Productivity Suggestions']}\nProductivity Details: {data['Productivity Details']}\nProductive Time: {data['Productive Time']}\nProductive Place: {data['Productive Place']}\n\nPeer Evaluations: {data['Peer_Evaluations']}"
 
         # Process the submission using Anthropic API
-        anthropic_api_key = os.environ.get("ANTHROPIC_API_KEY")
-        anthropic_api_url = "https://api.anthropic.com/v1/complete"
-        prompt = f"Summarize the following text and provide actionable insights, recommendations, and motivation to the employee:\n\n{submission_text}"
+        anthropic_api_key = st.secrets["ANTHROPIC_API_KEY"]
+        anthropic_api_url = "https://api.anthropic.com/v1/messages"
         headers = {
             "Content-Type": "application/json",
-            "X-API-Key": anthropic_api_key
+            "x-api-key": anthropic_api_key,
+            "anthropic-version": "2023-06-01"
         }
         payload = {
-            "prompt": prompt,
-            "max_tokens_to_sample": 100
+            "model": "claude-3-opus-20240229",
+            "max_tokens": 1024,
+            "messages": [
+                {"role": "system", "content": "Please summarize the following text and provide actionable insights, recommendations, and motivation to the employee. Your response should be in plain text format, without any special formatting or markup."},
+                {"role": "user", "content": submission_text}
+            ]
         }
-        response = requests.post(anthropic_api_url, headers=headers, json=payload)
-        processed_output = response.json()["completion"]
+
+        try:
+            response = requests.post(anthropic_api_url, headers=headers, json=payload)
+            response.raise_for_status()  # Raise an exception for 4xx or 5xx status codes
+            response_data = response.json()
+            processed_output = response_data["completion"]
+        except requests.exceptions.RequestException as e:
+            processed_output = f"Error occurred while processing the request. Please try again later. Error details: {str(e)}"
+        except KeyError as e:
+            processed_output = "I apologize, but I couldn't generate a summary at the moment. Please try again later."
+        except Exception as e:
+            processed_output = f"An unexpected error occurred. Please try again later. Error details: {str(e)}"
 
         # Send email to the user
-        email_host = os.environ.get("EMAIL_HOST")
-        email_port = os.environ.get("EMAIL_PORT")
-        email_username = os.environ.get("EMAIL_USERNAME")
-        email_password = os.environ.get("EMAIL_PASSWORD")
+        email_host = st.secrets["EMAIL_HOST"]
+        email_port = st.secrets["EMAIL_PORT"]
+        email_username = st.secrets["EMAIL_USERNAME"]
+        email_password = st.secrets["EMAIL_PASSWORD"]
 
         msg = MIMEMultipart()
         msg["From"] = email_username
         msg["To"] = user_email
         msg["Subject"] = "Weekly Progress Report Summary"
 
-        email_body = f"Dear {st.session_state['selected_name']},\n\nThank you for submitting your Weekly Progress Report. Here is a summary of your submission along with some insights and recommendations:\n\n{processed_output}\n\nKeep up the great work!\n\nBest regards,\nYour Organization"
+        email_body = f"Dear {st.session_state['selected_name']},\n\nThank you for submitting your Weekly Progress Report. Here is a summary of your submission along with some insights and recommendations:\n\n{processed_output}\n\nBest regards,\nYour Organization"
         msg.attach(MIMEText(email_body, "plain"))
 
         with smtplib.SMTP(email_host, email_port) as server:
@@ -339,5 +350,4 @@ if st.session_state['show_peer_evaluation_section']:
             server.send_message(msg)
 
         st.session_state['submitted'] = True
-        st.markdown('<div class="success-message">WPR submitted successfully! Check your email for a summary.</div>', unsafe_allow_html=True)        
-    
+        st.markdown('<div class="success-message">WPR submitted successfully! Check your email for a summary.</div>', unsafe_allow_html=True)
