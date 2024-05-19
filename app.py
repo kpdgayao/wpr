@@ -293,5 +293,5 @@ if st.session_state['show_peer_evaluation_section']:
         st.session_state['submitted'] = True
         st.markdown('<div class="success-message">WPR submitted successfully!</div>', unsafe_allow_html=True)
         
-        # Redirect to IOL's website using JavaScript
-        st.write('<script>window.location.href = "https://www.iol.ph";</script>', unsafe_allow_html=True)
+        # Reload the page after a delay
+        st.rerun()
