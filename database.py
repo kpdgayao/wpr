@@ -1,13 +1,11 @@
 import streamlit as st
 from supabase import create_client, Client
-from dotenv import load_dotenv
 import os
 import pandas as pd
 
-load_dotenv()
 
-url = os.environ.get("SUPABASE_URL")
-key = os.environ.get("SUPABASE_KEY")
+url = st.secrets["SUPABASE_URL"]
+key = st.secrets["SUPABASE_KEY"]
 supabase: Client = create_client(url, key)
 
 def save_data(data):
