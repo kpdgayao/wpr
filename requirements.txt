@@ -4,3 +4,4 @@ pandas>=1.0.0
 supabase
 python-dotenv
 matplotlib
+mailjet-rest==1.3.4
