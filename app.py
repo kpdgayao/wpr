@@ -299,54 +299,54 @@ if st.session_state['show_peer_evaluation_section']:
         save_data(data)
 
         # Format the submission text based on the user's saved data
-    submission_text = f"Name: {data['Name']}\nTeam: {data['Team']}\nWeek Number: {data['Week Number']}\nYear: {data['Year']}\n\nCompleted Tasks: {data['Completed Tasks']}\nNumber of Completed Tasks: {data['Number of Completed Tasks']}\n\nPending Tasks: {data['Pending Tasks']}\nNumber of Pending Tasks: {data['Number of Pending Tasks']}\n\nDropped Tasks: {data['Dropped Tasks']}\nNumber of Dropped Tasks: {data['Number of Dropped Tasks']}\n\nProjects: {data['Projects']}\n\nProductivity Rating: {data['Productivity Rating']}\nProductivity Suggestions: {data['Productivity Suggestions']}\nProductivity Details: {data['Productivity Details']}\nProductive Time: {data['Productive Time']}\nProductive Place: {data['Productive Place']}\n\nPeer Evaluations: {data['Peer_Evaluations']}"
+        submission_text = f"Name: {data['Name']}\nTeam: {data['Team']}\nWeek Number: {data['Week Number']}\nYear: {data['Year']}\n\nCompleted Tasks: {data['Completed Tasks']}\nNumber of Completed Tasks: {data['Number of Completed Tasks']}\n\nPending Tasks: {data['Pending Tasks']}\nNumber of Pending Tasks: {data['Number of Pending Tasks']}\n\nDropped Tasks: {data['Dropped Tasks']}\nNumber of Dropped Tasks: {data['Number of Dropped Tasks']}\n\nProjects: {data['Projects']}\n\nProductivity Rating: {data['Productivity Rating']}\nProductivity Suggestions: {data['Productivity Suggestions']}\nProductivity Details: {data['Productivity Details']}\nProductive Time: {data['Productive Time']}\nProductive Place: {data['Productive Place']}\n\nPeer Evaluations: {data['Peer_Evaluations']}"
 
-    # Process the submission using Anthropic API
-    anthropic_api_key = st.secrets["ANTHROPIC_API_KEY"]
-    anthropic_api_url = "https://api.anthropic.com/v1/complete"
-    prompt = f"Summarize the following text and provide actionable insights, recommendations, and motivation to the employee:\n\n{submission_text}"
-    headers = {
-        "Content-Type": "application/json",
-        "X-API-Key": anthropic_api_key
-    }
-    payload = {
-        "prompt": prompt,
-        "max_tokens_to_sample": 100
-    }
+        # Process the submission using Anthropic API
+        anthropic_api_key = st.secrets["ANTHROPIC_API_KEY"]
+        anthropic_api_url = "https://api.anthropic.com/v1/complete"
+        prompt = f"Summarize the following text and provide actionable insights, recommendations, and motivation to the employee:\n\n{submission_text}"
+        headers = {
+            "Content-Type": "application/json",
+            "X-API-Key": anthropic_api_key
+        }
+        payload = {
+            "prompt": prompt,
+            "max_tokens_to_sample": 100
+        }
 
-    try:
-        response = requests.post(anthropic_api_url, headers=headers, json=payload)
-        response.raise_for_status()  # Raise an exception for 4xx or 5xx status codes
-        response_data = response.json()
-        if "completion" in response_data:
-            processed_output = response_data["completion"]
-        else:
-            processed_output = "No completion found in the API response."
-    except requests.exceptions.RequestException as e:
-        processed_output = f"Error occurred while processing the request: {str(e)}"
-    except KeyError as e:
-        processed_output = f"Expected key not found in the API response: {str(e)}"
-    except Exception as e:
-        processed_output = f"An unexpected error occurred: {str(e)}"
+        try:
+            response = requests.post(anthropic_api_url, headers=headers, json=payload)
+            response.raise_for_status()  # Raise an exception for 4xx or 5xx status codes
+            response_data = response.json()
+            if "completion" in response_data:
+                processed_output = response_data["completion"]
+            else:
+                processed_output = "I apologize, but I couldn't generate a summary at the moment. Please try again later."
+        except requests.exceptions.RequestException as e:
+            processed_output = f"Error occurred while processing the request. Please try again later. Error details: {str(e)}"
+        except KeyError as e:
+            processed_output = "I apologize, but I couldn't generate a summary at the moment. Please try again later."
+        except Exception as e:
+            processed_output = f"An unexpected error occurred. Please try again later. Error details: {str(e)}"
 
-    # Send email to the user
-    email_host = st.secrets["EMAIL_HOST"]
-    email_port = st.secrets["EMAIL_PORT"]
-    email_username = st.secrets["EMAIL_USERNAME"]
-    email_password = st.secrets["EMAIL_PASSWORD"]
+        # Send email to the user
+        email_host = st.secrets["EMAIL_HOST"]
+        email_port = st.secrets["EMAIL_PORT"]
+        email_username = st.secrets["EMAIL_USERNAME"]
+        email_password = st.secrets["EMAIL_PASSWORD"]
 
-    msg = MIMEMultipart()
-    msg["From"] = email_username
-    msg["To"] = user_email
-    msg["Subject"] = "Weekly Progress Report Summary"
+        msg = MIMEMultipart()
+        msg["From"] = email_username
+        msg["To"] = user_email
+        msg["Subject"] = "Weekly Progress Report Summary"
 
-    email_body = f"Dear {st.session_state['selected_name']},\n\nThank you for submitting your Weekly Progress Report. Here is a summary of your submission along with some insights and recommendations:\n\n{processed_output}\n\nKeep up the great work!\n\nBest regards,\nYour Organization"
-    msg.attach(MIMEText(email_body, "plain"))
+        email_body = f"Dear {st.session_state['selected_name']},\n\nThank you for submitting your Weekly Progress Report. Here is a summary of your submission along with some insights and recommendations:\n\n{processed_output}\n\nBest regards,\nYour Organization"
+        msg.attach(MIMEText(email_body, "plain"))
 
-    with smtplib.SMTP(email_host, email_port) as server:
-        server.starttls()
-        server.login(email_username, email_password)
-        server.send_message(msg)
+        with smtplib.SMTP(email_host, email_port) as server:
+            server.starttls()
+            server.login(email_username, email_password)
+            server.send_message(msg)
 
-    st.session_state['submitted'] = True
-    st.markdown('<div class="success-message">WPR submitted successfully! Check your email for a summary.</div>', unsafe_allow_html=True)
+        st.session_state['submitted'] = True
+        st.markdown('<div class="success-message">WPR submitted successfully! Check your email for a summary.</div>', unsafe_allow_html=True)
