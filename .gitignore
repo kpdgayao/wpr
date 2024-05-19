@@ -1,1 +1,6 @@
+<<<<<<< HEAD
 .env
+=======
+.env
+.streamlit/secrets.toml
+>>>>>>> 9a4734916d3d05ecdc6353c0ce51bbe39a1d3cdd
