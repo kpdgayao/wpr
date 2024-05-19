@@ -304,19 +304,17 @@ if st.session_state['show_peer_evaluation_section']:
 
         # Process the submission using Anthropic API
         anthropic_api_key = st.secrets["ANTHROPIC_API_KEY"]
-        anthropic_api_url = "https://api.anthropic.com/v1/messages"
+        anthropic_api_url = "https://api.anthropic.com/v1/complete"
         headers = {
             "Content-Type": "application/json",
-            "x-api-key": anthropic_api_key,
-            "anthropic-version": "2023-06-01"
+            "X-API-Key": anthropic_api_key
         }
+        prompt = f"Please summarize the following text and provide actionable insights, recommendations, and motivation to the employee. Your response should be in plain text format, without any special formatting or markup.\n\n{submission_text}"
         payload = {
-            "model": "claude-3-opus-20240229",
-            "max_tokens": 1024,
-            "messages": [
-                {"role": "system", "content": "Please summarize the following text and provide actionable insights, recommendations, and motivation to the employee. Your response should be in plain text format, without any special formatting or markup."},
-                {"role": "user", "content": submission_text}
-            ]
+            "model": "claude-v1",
+            "prompt": prompt,
+            "max_tokens_to_sample": 1024,
+            "stop_sequences": ["\n\nHuman:"]
         }
 
         try:
@@ -326,10 +324,13 @@ if st.session_state['show_peer_evaluation_section']:
             processed_output = response_data["completion"]
         except requests.exceptions.RequestException as e:
             processed_output = f"Error occurred while processing the request. Please try again later. Error details: {str(e)}"
+            st.error(f"Error occurred while processing the request. Please try again later. Error details: {str(e)}")
         except KeyError as e:
             processed_output = "I apologize, but I couldn't generate a summary at the moment. Please try again later."
+            st.error("I apologize, but I couldn't generate a summary at the moment. Please try again later.")
         except Exception as e:
             processed_output = f"An unexpected error occurred. Please try again later. Error details: {str(e)}"
+            st.error(f"An unexpected error occurred. Please try again later. Error details: {str(e)}")
 
         # Mailjet API credentials
         api_key = os.environ['MAILJET_API_KEY']
