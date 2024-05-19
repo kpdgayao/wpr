@@ -159,30 +159,21 @@ if st.button("Proceed") and st.session_state['selected_name']:
     st.markdown('<div class="subsection-header">Task Completion</div>', unsafe_allow_html=True)
     num_completed_tasks = st.number_input("Number of Completed Tasks", min_value=0, step=1, value=0, key='num_completed_tasks')
     completed_tasks = []
-    if num_completed_tasks > 0:
-        for i in range(int(num_completed_tasks)):
-            task = st.text_input(f"Completed Task {i+1}", key=f"completed_task_{i}", on_change=lambda: None)
-            completed_tasks.append(task)
-    else:
-        no_completed_tasks = st.checkbox("No Completed Tasks", value=True, key='no_completed_tasks')
+    for i in range(int(num_completed_tasks)):
+        task = st.text_input(f"Completed Task {i+1}", key=f"completed_task_{i}")
+        completed_tasks.append(task)
 
     num_pending_tasks = st.number_input("Number of Pending Tasks", min_value=0, step=1, value=0, key='num_pending_tasks')
     pending_tasks = []
-    if num_pending_tasks > 0:
-        for i in range(int(num_pending_tasks)):
-            task = st.text_input(f"Pending Task {i+1}", key=f"pending_task_{i}", on_change=lambda: None)
-            pending_tasks.append(task)
-    else:
-        no_pending_tasks = st.checkbox("No Pending Tasks", value=True, key='no_pending_tasks')
+    for i in range(int(num_pending_tasks)):
+        task = st.text_input(f"Pending Task {i+1}", key=f"pending_task_{i}")
+        pending_tasks.append(task)
 
     num_dropped_tasks = st.number_input("Number of Dropped Tasks", min_value=0, step=1, value=0, key='num_dropped_tasks')
     dropped_tasks = []
-    if num_dropped_tasks > 0:
-        for i in range(int(num_dropped_tasks)):
-            task = st.text_input(f"Dropped Task {i+1}", key=f"dropped_task_{i}", on_change=lambda: None)
-            dropped_tasks.append(task)
-    else:
-        no_dropped_tasks = st.checkbox("No Dropped Tasks", value=True, key='no_dropped_tasks')
+    for i in range(int(num_dropped_tasks)):
+        task = st.text_input(f"Dropped Task {i+1}", key=f"dropped_task_{i}")
+        dropped_tasks.append(task)
 
     # Calculate total tasks and percentages
     total_tasks = num_completed_tasks + num_pending_tasks + num_dropped_tasks
