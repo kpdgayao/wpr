@@ -3,6 +3,7 @@ from datetime import datetime
 from database import save_data, load_data, display_data
 import pandas as pd
 import matplotlib.pyplot as plt
+import webbrowser
 
 # Set page title and favicon
 st.set_page_config(page_title="Weekly Progress Report", page_icon=":clipboard:")
@@ -283,3 +284,6 @@ if st.session_state['show_peer_evaluation_section']:
         save_data(data)
         st.session_state['submitted'] = True
         st.markdown('<div class="success-message">WPR submitted successfully!</div>', unsafe_allow_html=True)
+        
+        # Redirect to IOL's website
+        webbrowser.open("https://www.iol.ph")
