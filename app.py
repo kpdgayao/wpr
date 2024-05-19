@@ -3,7 +3,6 @@ from datetime import datetime
 from database import save_data, load_data, display_data
 import pandas as pd
 import matplotlib.pyplot as plt
-import webbrowser
 
 # Set page title and favicon
 st.set_page_config(page_title="Weekly Progress Report", page_icon=":clipboard:")
@@ -133,6 +132,15 @@ if st.session_state['show_task_section']:
                     st.write(f"{project['name']}: {project['completion']}%")
             else:
                 st.write("No projects found for the past week.")
+            
+            # Display pending tasks from the previous week
+            st.markdown('<div class="subsection-header">Pending Tasks from Last Week</div>', unsafe_allow_html=True)
+            past_week_pending_tasks = user_responses.iloc[0]["Pending Tasks"]
+            if past_week_pending_tasks:
+                for task in past_week_pending_tasks:
+                    st.write(f"- {task}")
+            else:
+                st.write("No pending tasks from the previous week.")
         else:
             st.write("No previous responses found.")
 
@@ -285,5 +293,5 @@ if st.session_state['show_peer_evaluation_section']:
         st.session_state['submitted'] = True
         st.markdown('<div class="success-message">WPR submitted successfully!</div>', unsafe_allow_html=True)
         
-        # Redirect to IOL's website
-        webbrowser.open("https://www.iol.ph")
+        # Redirect to IOL's website using JavaScript
+        st.write('<script>window.location.href = "https://www.iol.ph";</script>', unsafe_allow_html=True)
