@@ -68,6 +68,8 @@ if 'selected_name' not in st.session_state:
     st.session_state['selected_name'] = ""
 if 'week_number' not in st.session_state:
     st.session_state['week_number'] = datetime.now().isocalendar()[1]
+if 'form_submitted' not in st.session_state:
+    st.session_state['form_submitted'] = False
 
 # Define teams and their members
 teams = {
@@ -103,6 +105,8 @@ st.write(f"Selected Week: Week {st.session_state['week_number']}, {current_year}
 
 # Add a button to proceed to the task section
 if st.button("Proceed") and st.session_state['selected_name']:
+    st.session_state['form_submitted'] = False  # Reset the form submission state
+
     # Extract the team from the selected name
     team = st.session_state['selected_name'].split("(")[-1].split(")")[0]
 
@@ -276,3 +280,10 @@ if st.button("Proceed") and st.session_state['selected_name']:
         save_data(data)
         st.markdown('<div class="success-message">WPR submitted successfully!</div>', unsafe_allow_html=True)
         
+        st.session_state['form_submitted'] = True  # Set the form submission state to True
+        
+        # Refresh the page after 3 seconds
+        st.experimental_rerun()
+
+if st.session_state['form_submitted']:
+    st.markdown('<div class="success-message">WPR submitted successfully!</div>', unsafe_allow_html=True)        
