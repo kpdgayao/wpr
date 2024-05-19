@@ -309,12 +309,12 @@ if st.session_state['show_peer_evaluation_section']:
         prompt = f"{anthropic.HUMAN_PROMPT} Please summarize the following text and provide actionable insights, recommendations, and motivation to the employee. Your response should be in plain text format, without any special formatting or markup.\n\n{submission_text}{anthropic.AI_PROMPT}"
 
         try:
-            response = client.completion(
+            response = client.completions.create(
                 prompt=prompt,
                 model="claude-v1",
                 max_tokens_to_sample=1024,
             )
-            processed_output = response["completion"]
+            processed_output = response.completion
         except anthropic.APIError as e:
             processed_output = f"Error occurred while processing the request. Please try again later. Error details: {str(e)}"
             st.error(f"Error occurred while processing the request. Please try again later. Error details: {str(e)}")
