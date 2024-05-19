@@ -36,12 +36,6 @@ custom_css = """
             color: #28B463;
             margin-top: 20px;
         }
-        .warning-message {
-            font-size: 18px;
-            font-weight: bold;
-            color: #E74C3C;
-            margin-top: 20px;
-        }
         .progress-bar {
             height: 20px;
             background-color: #E8F8F5;
@@ -74,10 +68,6 @@ if 'selected_name' not in st.session_state:
     st.session_state['selected_name'] = ""
 if 'week_number' not in st.session_state:
     st.session_state['week_number'] = datetime.now().isocalendar()[1]
-if 'submitted' not in st.session_state:
-    st.session_state['submitted'] = False
-if 'submitted_week' not in st.session_state:
-    st.session_state['submitted_week'] = None
 
 # Define teams and their members
 teams = {
@@ -107,197 +97,193 @@ week_number = st.number_input("Enter the Week Number", min_value=1, max_value=52
 # Update session state when the week number changes
 if week_number != st.session_state['week_number']:
     st.session_state['week_number'] = week_number
-    st.session_state['submitted'] = False  # Reset the submitted state when changing the week
 
 # Display the entered week number and current year
 st.write(f"Selected Week: Week {st.session_state['week_number']}, {current_year}")
 
-# Add a warning message if the form has already been submitted for the selected week
-if st.session_state['submitted'] and st.session_state['submitted_week'] == st.session_state['week_number']:
-    st.markdown('<div class="warning-message">You have already submitted the WPR for this week. Please select a different week to submit a new report.</div>', unsafe_allow_html=True)
-else:
-    # Add a button to proceed to the task section
-    if st.button("Proceed") and st.session_state['selected_name']:
-        # Extract the team from the selected name
-        team = st.session_state['selected_name'].split("(")[-1].split(")")[0]
+# Add a button to proceed to the task section
+if st.button("Proceed") and st.session_state['selected_name']:
+    # Extract the team from the selected name
+    team = st.session_state['selected_name'].split("(")[-1].split(")")[0]
 
-        st.markdown(f'<div class="section-header">Welcome, {st.session_state["selected_name"].split("(")[0].strip()}</div>', unsafe_allow_html=True)
-        st.write(f"Team: {team}")
+    st.markdown(f'<div class="section-header">Welcome, {st.session_state["selected_name"].split("(")[0].strip()}</div>', unsafe_allow_html=True)
+    st.write(f"Team: {team}")
 
-        # Display the last 5 responses of the user
-        st.markdown('<div class="section-header">Your Last 5 Responses</div>', unsafe_allow_html=True)
-        user_data = load_data()
-        user_responses = user_data[user_data["Name"] == st.session_state['selected_name']].sort_values("Week Number", ascending=False).head(5)
+    # Display the last 5 responses of the user
+    st.markdown('<div class="section-header">Your Last 5 Responses</div>', unsafe_allow_html=True)
+    user_data = load_data()
+    user_responses = user_data[user_data["Name"] == st.session_state['selected_name']].sort_values("Week Number", ascending=False).head(5)
+
+    if not user_responses.empty:
+        # Create line charts for completed, pending, and dropped tasks
+        fig, ax = plt.subplots(figsize=(10, 6))
+        ax.plot(user_responses["Week Number"], user_responses["Number of Completed Tasks"], marker="o", label="Completed Tasks")
+        ax.plot(user_responses["Week Number"], user_responses["Number of Pending Tasks"], marker="o", label="Pending Tasks")
+        ax.plot(user_responses["Week Number"], user_responses["Number of Dropped Tasks"], marker="o", label="Dropped Tasks")
+        ax.set_xlabel("Week Number")
+        ax.set_ylabel("Number of Tasks")
+        ax.set_title("Task Trends")
+        ax.grid(True)
+        ax.legend()
+        st.pyplot(fig)
+
+        # Display projects for the past week
+        st.markdown('<div class="subsection-header">Projects for the Past Week</div>', unsafe_allow_html=True)
+        past_week_projects = user_responses.iloc[0]["Projects"]
+        if past_week_projects:
+            for project in past_week_projects:
+                st.write(f"{project['name']}: {project['completion']}%")
+                # Display progress bar for each project
+                progress_bar_html = f"""
+                    <div class="progress-bar">
+                        <div class="progress-bar-fill" style="width: {project['completion']}%;"></div>
+                    </div>
+                    <div class="progress-bar-label">{project['completion']}% Complete</div>
+                """
+                st.markdown(progress_bar_html, unsafe_allow_html=True)
+        else:
+            st.write("No projects found for the past week.")
+
+        # Display pending tasks from the previous week
+        st.markdown('<div class="subsection-header">Pending Tasks from Last Week</div>', unsafe_allow_html=True)
+        past_week_pending_tasks = user_responses.iloc[0]["Pending Tasks"]
+        if past_week_pending_tasks:
+            for task in past_week_pending_tasks:
+                st.write(f"- {task}")
+        else:
+            st.write("No pending tasks from the previous week.")
+    else:
+        st.write("No previous responses found.")
+
+    # Add input fields for task completion
+    st.markdown('<div class="subsection-header">Task Completion</div>', unsafe_allow_html=True)
+    num_completed_tasks = st.number_input("Number of Completed Tasks", min_value=0, step=1, value=0, key='num_completed_tasks')
+    completed_tasks = []
+    if num_completed_tasks > 0:
+        for i in range(int(num_completed_tasks)):
+            task = st.text_input(f"Completed Task {i+1}", key=f"completed_task_{i}")
+            completed_tasks.append(task)
+    else:
+        no_completed_tasks = st.checkbox("No Completed Tasks", value=True, key='no_completed_tasks')
+
+    num_pending_tasks = st.number_input("Number of Pending Tasks", min_value=0, step=1, value=0, key='num_pending_tasks')
+    pending_tasks = []
+    if num_pending_tasks > 0:
+        for i in range(int(num_pending_tasks)):
+            task = st.text_input(f"Pending Task {i+1}", key=f"pending_task_{i}")
+            pending_tasks.append(task)
+    else:
+        no_pending_tasks = st.checkbox("No Pending Tasks", value=True, key='no_pending_tasks')
+
+    num_dropped_tasks = st.number_input("Number of Dropped Tasks", min_value=0, step=1, value=0, key='num_dropped_tasks')
+    dropped_tasks = []
+    if num_dropped_tasks > 0:
+        for i in range(int(num_dropped_tasks)):
+            task = st.text_input(f"Dropped Task {i+1}", key=f"dropped_task_{i}")
+            dropped_tasks.append(task)
+    else:
+        no_dropped_tasks = st.checkbox("No Dropped Tasks", value=True, key='no_dropped_tasks')
+
+    # Calculate total tasks and percentages
+    total_tasks = num_completed_tasks + num_pending_tasks + num_dropped_tasks
+    completed_percentage = (num_completed_tasks / total_tasks) * 100 if total_tasks > 0 else 0
+    pending_percentage = (num_pending_tasks / total_tasks) * 100 if total_tasks > 0 else 0
+    dropped_percentage = (num_dropped_tasks / total_tasks) * 100 if total_tasks > 0 else 0
+
+    # Display task summary
+    st.markdown('<div class="subsection-header">Task Summary</div>', unsafe_allow_html=True)
+    st.write(f"Total Tasks: {total_tasks}")
+    st.write(f"Completed Tasks: {num_completed_tasks} ({completed_percentage:.2f}%)")
+    st.write(f"Pending Tasks: {num_pending_tasks} ({pending_percentage:.2f}%)")
+    st.write(f"Dropped Tasks: {num_dropped_tasks} ({dropped_percentage:.2f}%)")
+
+    # Add input fields for projects
+    st.markdown('<div class="section-header">Projects</div>', unsafe_allow_html=True)
+    num_projects = st.number_input("Number of Projects", min_value=0, step=1, value=0)
+    projects = []
+    if num_projects > 0:
+        for i in range(int(num_projects)):
+            project_name = st.text_input(f"Project {i+1} Name", key=f"project_name_{i}")
+            project_completion = st.number_input(f"Project {i+1} Completion (%)", min_value=0, max_value=100, step=1, key=f"project_completion_{i}")
+            projects.append({"name": project_name, "completion": project_completion})
+    else:
+        no_projects = st.checkbox("No Projects", value=True)
+
+    # Add input fields for productivity evaluation
+    st.markdown('<div class="section-header">Productivity Evaluation</div>', unsafe_allow_html=True)
+    productivity_rating = st.select_slider(
+        "Productivity Rating",
+        options=['1 - Not Productive', '2 - Somewhat Productive', '3 - Productive', '4 - Very Productive'],
+        value='3 - Productive',
+        key='productivity_rating'
+    )
+    productivity_suggestions = st.multiselect("Productivity Suggestions", [
+        "More Tools",
+        "More Supervision",
+        "Scheduled Breaks",
+        "Monetary Incentives",
+        "Better Time Management",
+        "Improved Communication",
+        "Alignment Meetings",
+        "Collaborative Activities",
+        "Training and Development",
+        "Workload Balancing"
+    ])
+    productivity_details = st.text_area("Please provide more details or examples")
+
+    # Add input fields for time and place of productivity
+    st.markdown('<div class="subsection-header">Time and Place of Productivity</div>', unsafe_allow_html=True)
+    productive_time = st.radio("What time are you most productive last week?", ["8am - 12nn", "12nn - 4pm", "4pm - 8pm", "8pm - 12mn"])
+    productive_place = st.radio("Where do you prefer to work based on your experience from last week?", ["Office", "Home"])
+
+    # Add input fields for peer evaluation
+    st.markdown('<div class="section-header">Peer Evaluation</div>', unsafe_allow_html=True)
+
+    # Get the selected user's team
+    selected_team = st.session_state['selected_name'].split("(")[-1].split(")")[0]
+
+    # Get the list of teammates for the selected user
+    teammates = [name for name in names if selected_team in name and name != st.session_state['selected_name']]
+
+    peer_evaluations = st.multiselect("Select the teammates you worked with last week", teammates)
+    peer_ratings = {}
+    for peer in peer_evaluations:
+        rating = st.select_slider(f"Rate {peer}", options=["1 (Poor)", "2 (Fair)", "3 (Satisfactory)", "4 (Excellent)"], key=f"peer_rating_{peer}")
+        peer_ratings[peer] = int(rating.split(" ")[0])  # Extract the numeric rating
+
+    # Convert peer ratings to a list of dictionaries
+    peer_evaluations_list = [{"Peer": peer, "Rating": rating} for peer, rating in peer_ratings.items()]
+
+    # Calculate the team overall rating
+    if peer_ratings:
+        team_overall_rating = sum(peer_ratings.values()) / len(peer_ratings)
+        st.write(f"Team Overall Rating: {team_overall_rating:.2f}")
+    else:
+        st.write("No peer evaluations provided.")
+
+    # Display the entered information and save data
+    if st.button("Submit"):
+        data = {
+            "Name": st.session_state['selected_name'],
+            "Team": team,
+            "Week Number": st.session_state['week_number'],
+            "Year": current_year,
+            "Completed Tasks": completed_tasks,
+            "Number of Completed Tasks": num_completed_tasks,
+            "Pending Tasks": pending_tasks,
+            "Number of Pending Tasks": num_pending_tasks,
+            "Dropped Tasks": dropped_tasks,
+            "Number of Dropped Tasks": num_dropped_tasks,
+            "Projects": projects if num_projects > 0 else [],
+            "Productivity Rating": productivity_rating,
+            "Productivity Suggestions": productivity_suggestions,
+            "Productivity Details": productivity_details,
+            "Productive Time": productive_time,
+            "Productive Place": productive_place,
+            "Peer_Evaluations": peer_evaluations_list
+        }
+        save_data(data)
+        st.markdown('<div class="success-message">WPR submitted successfully!</div>', unsafe_allow_html=True)
         
-        if not user_responses.empty:
-            # Create line charts for completed, pending, and dropped tasks
-            fig, ax = plt.subplots(figsize=(10, 6))
-            ax.plot(user_responses["Week Number"], user_responses["Number of Completed Tasks"], marker="o", label="Completed Tasks")
-            ax.plot(user_responses["Week Number"], user_responses["Number of Pending Tasks"], marker="o", label="Pending Tasks")
-            ax.plot(user_responses["Week Number"], user_responses["Number of Dropped Tasks"], marker="o", label="Dropped Tasks")
-            ax.set_xlabel("Week Number")
-            ax.set_ylabel("Number of Tasks")
-            ax.set_title("Task Trends")
-            ax.grid(True)
-            ax.legend()
-            st.pyplot(fig)
-
-            # Display projects for the past week
-            st.markdown('<div class="subsection-header">Projects for the Past Week</div>', unsafe_allow_html=True)
-            past_week_projects = user_responses.iloc[0]["Projects"]
-            if past_week_projects:
-                for project in past_week_projects:
-                    st.write(f"{project['name']}: {project['completion']}%")
-                    # Display progress bar for each project
-                    progress_bar_html = f"""
-                        <div class="progress-bar">
-                            <div class="progress-bar-fill" style="width: {project['completion']}%;"></div>
-                        </div>
-                        <div class="progress-bar-label">{project['completion']}% Complete</div>
-                    """
-                    st.markdown(progress_bar_html, unsafe_allow_html=True)
-            else:
-                st.write("No projects found for the past week.")
-            
-            # Display pending tasks from the previous week
-            st.markdown('<div class="subsection-header">Pending Tasks from Last Week</div>', unsafe_allow_html=True)
-            past_week_pending_tasks = user_responses.iloc[0]["Pending Tasks"]
-            if past_week_pending_tasks:
-                for task in past_week_pending_tasks:
-                    st.write(f"- {task}")
-            else:
-                st.write("No pending tasks from the previous week.")
-        else:
-            st.write("No previous responses found.")
-
-        # Add input fields for task completion
-        st.markdown('<div class="subsection-header">Task Completion</div>', unsafe_allow_html=True)
-        num_completed_tasks = st.number_input("Number of Completed Tasks", min_value=0, step=1, value=0, key='num_completed_tasks')
-        completed_tasks = []
-        if num_completed_tasks > 0:
-            for i in range(int(num_completed_tasks)):
-                task = st.text_input(f"Completed Task {i+1}", key=f"completed_task_{i}")
-                completed_tasks.append(task)
-        else:
-            no_completed_tasks = st.checkbox("No Completed Tasks", value=True, key='no_completed_tasks')
-
-        num_pending_tasks = st.number_input("Number of Pending Tasks", min_value=0, step=1, value=0, key='num_pending_tasks')
-        pending_tasks = []
-        if num_pending_tasks > 0:
-            for i in range(int(num_pending_tasks)):
-                task = st.text_input(f"Pending Task {i+1}", key=f"pending_task_{i}")
-                pending_tasks.append(task)
-        else:
-            no_pending_tasks = st.checkbox("No Pending Tasks", value=True, key='no_pending_tasks')
-
-        num_dropped_tasks = st.number_input("Number of Dropped Tasks", min_value=0, step=1, value=0, key='num_dropped_tasks')
-        dropped_tasks = []
-        if num_dropped_tasks > 0:
-            for i in range(int(num_dropped_tasks)):
-                task = st.text_input(f"Dropped Task {i+1}", key=f"dropped_task_{i}")
-                dropped_tasks.append(task)
-        else:
-            no_dropped_tasks = st.checkbox("No Dropped Tasks", value=True, key='no_dropped_tasks')
-
-        # Calculate total tasks and percentages
-        total_tasks = num_completed_tasks + num_pending_tasks + num_dropped_tasks
-        completed_percentage = (num_completed_tasks / total_tasks) * 100 if total_tasks > 0 else 0
-        pending_percentage = (num_pending_tasks / total_tasks) * 100 if total_tasks > 0 else 0
-        dropped_percentage = (num_dropped_tasks / total_tasks) * 100 if total_tasks > 0 else 0
-
-        # Display task summary
-        st.markdown('<div class="subsection-header">Task Summary</div>', unsafe_allow_html=True)
-        st.write(f"Total Tasks: {total_tasks}")
-        st.write(f"Completed Tasks: {num_completed_tasks} ({completed_percentage:.2f}%)")
-        st.write(f"Pending Tasks: {num_pending_tasks} ({pending_percentage:.2f}%)")
-        st.write(f"Dropped Tasks: {num_dropped_tasks} ({dropped_percentage:.2f}%)")
-
-        # Add input fields for projects
-        st.markdown('<div class="section-header">Projects</div>', unsafe_allow_html=True)
-        num_projects = st.number_input("Number of Projects", min_value=0, step=1, value=0)
-        projects = []
-        if num_projects > 0:
-            for i in range(int(num_projects)):
-                project_name = st.text_input(f"Project {i+1} Name", key=f"project_name_{i}")
-                project_completion = st.number_input(f"Project {i+1} Completion (%)", min_value=0, max_value=100, step=1, key=f"project_completion_{i}")
-                projects.append({"name": project_name, "completion": project_completion})
-        else:
-            no_projects = st.checkbox("No Projects", value=True)
-
-        # Add input fields for productivity evaluation
-        st.markdown('<div class="section-header">Productivity Evaluation</div>', unsafe_allow_html=True)
-        productivity_rating = st.select_slider(
-            "Productivity Rating",
-            options=['1 - Not Productive', '2 - Somewhat Productive', '3 - Productive', '4 - Very Productive'],
-            value='3 - Productive',
-            key='productivity_rating'
-        )
-        productivity_suggestions = st.multiselect("Productivity Suggestions", [
-            "More Tools",
-            "More Supervision",
-            "Scheduled Breaks",
-            "Monetary Incentives",
-            "Better Time Management",
-            "Improved Communication",
-            "Alignment Meetings",
-            "Collaborative Activities",
-            "Training and Development",
-            "Workload Balancing"
-        ])
-        productivity_details = st.text_area("Please provide more details or examples")
-
-        # Add input fields for time and place of productivity
-        st.markdown('<div class="subsection-header">Time and Place of Productivity</div>', unsafe_allow_html=True)
-        productive_time = st.radio("What time are you most productive last week?", ["8am - 12nn", "12nn - 4pm", "4pm - 8pm", "8pm - 12mn"])
-        productive_place = st.radio("Where do you prefer to work based on your experience from last week?", ["Office", "Home"])
-
-        # Add input fields for peer evaluation
-        st.markdown('<div class="section-header">Peer Evaluation</div>', unsafe_allow_html=True)
-
-        # Get the selected user's team
-        selected_team = st.session_state['selected_name'].split("(")[-1].split(")")[0]
-
-        # Get the list of teammates for the selected user
-        teammates = [name for name in names if selected_team in name and name != st.session_state['selected_name']]
-
-        peer_evaluations = st.multiselect("Select the teammates you worked with last week", teammates)
-        peer_ratings = {}
-        for peer in peer_evaluations:
-            rating = st.select_slider(f"Rate {peer}", options=["1 (Poor)", "2 (Fair)", "3 (Satisfactory)", "4 (Excellent)"], key=f"peer_rating_{peer}")
-            peer_ratings[peer] = int(rating.split(" ")[0])  # Extract the numeric rating
-
-        # Convert peer ratings to a list of dictionaries
-        peer_evaluations_list = [{"Peer": peer, "Rating": rating} for peer, rating in peer_ratings.items()]
-
-        # Calculate the team overall rating
-        if peer_ratings:
-            team_overall_rating = sum(peer_ratings.values()) / len(peer_ratings)
-            st.write(f"Team Overall Rating: {team_overall_rating:.2f}")
-        else:
-            st.write("No peer evaluations provided.")
-
-        # Display the entered information and save data
-        if st.button("Submit"):
-            data = {
-                "Name": st.session_state['selected_name'],
-                "Team": team,
-                "Week Number": st.session_state['week_number'],
-                "Year": current_year,
-                "Completed Tasks": completed_tasks,
-                "Number of Completed Tasks": num_completed_tasks,
-                "Pending Tasks": pending_tasks,
-                "Number of Pending Tasks": num_pending_tasks,
-                "Dropped Tasks": dropped_tasks,
-                "Number of Dropped Tasks": num_dropped_tasks,
-                "Projects": projects if num_projects > 0 else [],
-                "Productivity Rating": productivity_rating,
-                "Productivity Suggestions": productivity_suggestions,
-                "Productivity Details": productivity_details,
-                "Productive Time": productive_time,
-                "Productive Place": productive_place,
-                "Peer_Evaluations": peer_evaluations_list
-            }
-            save_data(data)
-            st.session_state['submitted'] = True
-            st.session_state['submitted_week'] = st.session_state['week_number']
-            st.markdown('<div class="success-message">WPR submitted successfully!</div>', unsafe_allow_html=True)
+        # Refresh the page after 3 seconds
+        st.experimental_rerun()
