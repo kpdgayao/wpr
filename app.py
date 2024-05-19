@@ -8,6 +8,7 @@ from datetime import datetime
 from database import save_data, load_data, display_data
 import pandas as pd
 import matplotlib.pyplot as plt
+from mailjet_rest import Client
 
 # Set page title and favicon
 st.set_page_config(page_title="Weekly Progress Report", page_icon=":clipboard:")
@@ -330,39 +331,40 @@ if st.session_state['show_peer_evaluation_section']:
         except Exception as e:
             processed_output = f"An unexpected error occurred. Please try again later. Error details: {str(e)}"
 
-        # Send email to the user
-        email_host = st.secrets["EMAIL_HOST"]
-        email_port = st.secrets["EMAIL_PORT"]
-        email_username = st.secrets["EMAIL_USERNAME"]
-        email_password = st.secrets["EMAIL_PASSWORD"]
+        # Mailjet API credentials
+        api_key = os.environ['MAILJET_API_KEY']
+        api_secret = os.environ['MAILJET_API_SECRET']
 
-        msg = MIMEMultipart()
-        msg["From"] = email_username
-        msg["To"] = user_email
-        msg["Subject"] = "Weekly Progress Report Summary"
+        # Create a Mailjet client
+        mailjet = Client(auth=(api_key, api_secret), version='v3.1')
 
-        email_body = f"Dear {st.session_state['selected_name']},\n\nThank you for submitting your Weekly Progress Report. Here is a summary of your submission along with some insights and recommendations:\n\n{processed_output}\n\nBest regards,\nYour Organization"
-        msg.attach(MIMEText(email_body, "plain"))
+        # Prepare the email data
+        email_data = {
+            'Messages': [
+                {
+                    "From": {
+                        "Email": "go@iol.ph",
+                        "Name": "IOL Inc."
+                    },
+                    "To": [
+                        {
+                            "Email": user_email,
+                            "Name": st.session_state['selected_name']
+                        }
+                    ],
+                    "Subject": "Weekly Progress Report Summary",
+                    "TextPart": processed_output
+                }
+            ]
+        }
 
-
-        with smtplib.SMTP(email_host, email_port) as server:
-            server.starttls()
-            server.login(email_username, email_password)
-            server.send_message(msg)
-
-        st.session_state['submitted'] = True
-        st.markdown('<div class="success-message">WPR submitted successfully! Check your email for a summary.</div>', unsafe_allow_html=True)
-
+        # Send the email using Mailjet API
         try:
-            with smtplib.SMTP(email_host, email_port) as server:
-                server.starttls()
-                server.login(email_username, email_password)
-                server.send_message(msg)
+            result = mailjet.send.create(data=email_data)
+            print(f"Email sent with status code: {result.status_code}")
             st.success("Email sent successfully!")
-        except smtplib.SMTPServerDisconnected as e:
-            st.error(f"Failed to send email. SMTP server disconnected unexpectedly: {str(e)}")
-            st.warning("Please check your SMTP server configuration and network connection.")
         except Exception as e:
+            print(f"Error sending email: {str(e)}")
             st.error(f"An error occurred while sending the email: {str(e)}")
 
         st.session_state['submitted'] = True
