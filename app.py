@@ -107,6 +107,7 @@ week_number = st.number_input("Enter the Week Number", min_value=1, max_value=52
 # Update session state when the week number changes
 if week_number != st.session_state['week_number']:
     st.session_state['week_number'] = week_number
+    st.session_state['submitted'] = False  # Reset the submitted state when changing the week
 
 # Display the entered week number and current year
 st.write(f"Selected Week: Week {st.session_state['week_number']}, {current_year}")
@@ -169,7 +170,7 @@ else:
         else:
             st.write("No previous responses found.")
 
-  # Add input fields for task completion
+        # Add input fields for task completion
         st.markdown('<div class="subsection-header">Task Completion</div>', unsafe_allow_html=True)
         num_completed_tasks = st.number_input("Number of Completed Tasks", min_value=0, step=1, value=0, key='num_completed_tasks')
         completed_tasks = []
@@ -211,98 +212,92 @@ else:
         st.write(f"Pending Tasks: {num_pending_tasks} ({pending_percentage:.2f}%)")
         st.write(f"Dropped Tasks: {num_dropped_tasks} ({dropped_percentage:.2f}%)")
 
-        # Add a button to proceed to the project section
-        if st.button("Next", key='task_next'):
-            # Add input fields for projects
-            st.markdown('<div class="section-header">Projects</div>', unsafe_allow_html=True)
-            num_projects = st.number_input("Number of Projects", min_value=0, step=1, value=0)
-            projects = []
-            if num_projects > 0:
-                for i in range(int(num_projects)):
-                    project_name = st.text_input(f"Project {i+1} Name", key=f"project_name_{i}")
-                    project_completion = st.number_input(f"Project {i+1} Completion (%)", min_value=0, max_value=100, step=1, key=f"project_completion_{i}")
-                    projects.append({"name": project_name, "completion": project_completion})
-            else:
-                no_projects = st.checkbox("No Projects", value=True)
+        # Add input fields for projects
+        st.markdown('<div class="section-header">Projects</div>', unsafe_allow_html=True)
+        num_projects = st.number_input("Number of Projects", min_value=0, step=1, value=0)
+        projects = []
+        if num_projects > 0:
+            for i in range(int(num_projects)):
+                project_name = st.text_input(f"Project {i+1} Name", key=f"project_name_{i}")
+                project_completion = st.number_input(f"Project {i+1} Completion (%)", min_value=0, max_value=100, step=1, key=f"project_completion_{i}")
+                projects.append({"name": project_name, "completion": project_completion})
+        else:
+            no_projects = st.checkbox("No Projects", value=True)
 
-            # Add a button to proceed to the productivity section
-            if st.button("Next", key='project_next'):
-                # Add input fields for productivity evaluation
-                st.markdown('<div class="section-header">Productivity Evaluation</div>', unsafe_allow_html=True)
-                productivity_rating = st.select_slider(
-                    "Productivity Rating",
-                    options=['1 - Not Productive', '2 - Somewhat Productive', '3 - Productive', '4 - Very Productive'],
-                    value='3 - Productive',
-                    key='productivity_rating'
-                )
-                productivity_suggestions = st.multiselect("Productivity Suggestions", [
-                    "More Tools",
-                    "More Supervision",
-                    "Scheduled Breaks",
-                    "Monetary Incentives",
-                    "Better Time Management",
-                    "Improved Communication",
-                    "Alignment Meetings",
-                    "Collaborative Activities",
-                    "Training and Development",
-                    "Workload Balancing"
-                ])
-                productivity_details = st.text_area("Please provide more details or examples")
+        # Add input fields for productivity evaluation
+        st.markdown('<div class="section-header">Productivity Evaluation</div>', unsafe_allow_html=True)
+        productivity_rating = st.select_slider(
+            "Productivity Rating",
+            options=['1 - Not Productive', '2 - Somewhat Productive', '3 - Productive', '4 - Very Productive'],
+            value='3 - Productive',
+            key='productivity_rating'
+        )
+        productivity_suggestions = st.multiselect("Productivity Suggestions", [
+            "More Tools",
+            "More Supervision",
+            "Scheduled Breaks",
+            "Monetary Incentives",
+            "Better Time Management",
+            "Improved Communication",
+            "Alignment Meetings",
+            "Collaborative Activities",
+            "Training and Development",
+            "Workload Balancing"
+        ])
+        productivity_details = st.text_area("Please provide more details or examples")
 
-                # Add input fields for time and place of productivity
-                st.markdown('<div class="subsection-header">Time and Place of Productivity</div>', unsafe_allow_html=True)
-                productive_time = st.radio("What time are you most productive last week?", ["8am - 12nn", "12nn - 4pm", "4pm - 8pm", "8pm - 12mn"])
-                productive_place = st.radio("Where do you prefer to work based on your experience from last week?", ["Office", "Home"])
+        # Add input fields for time and place of productivity
+        st.markdown('<div class="subsection-header">Time and Place of Productivity</div>', unsafe_allow_html=True)
+        productive_time = st.radio("What time are you most productive last week?", ["8am - 12nn", "12nn - 4pm", "4pm - 8pm", "8pm - 12mn"])
+        productive_place = st.radio("Where do you prefer to work based on your experience from last week?", ["Office", "Home"])
 
-                # Add a button to proceed to the peer evaluation section
-                if st.button("Next", key='productivity_next'):
-                    # Add input fields for peer evaluation
-                    st.markdown('<div class="section-header">Peer Evaluation</div>', unsafe_allow_html=True)
+        # Add input fields for peer evaluation
+        st.markdown('<div class="section-header">Peer Evaluation</div>', unsafe_allow_html=True)
 
-                    # Get the selected user's team
-                    selected_team = st.session_state['selected_name'].split("(")[-1].split(")")[0]
+        # Get the selected user's team
+        selected_team = st.session_state['selected_name'].split("(")[-1].split(")")[0]
 
-                    # Get the list of teammates for the selected user
-                    teammates = [name for name in names if selected_team in name and name != st.session_state['selected_name']]
+        # Get the list of teammates for the selected user
+        teammates = [name for name in names if selected_team in name and name != st.session_state['selected_name']]
 
-                    peer_evaluations = st.multiselect("Select the teammates you worked with last week", teammates)
-                    peer_ratings = {}
-                    for peer in peer_evaluations:
-                        rating = st.select_slider(f"Rate {peer}", options=["1 (Poor)", "2 (Fair)", "3 (Satisfactory)", "4 (Excellent)"], key=f"peer_rating_{peer}")
-                        peer_ratings[peer] = int(rating.split(" ")[0])  # Extract the numeric rating
+        peer_evaluations = st.multiselect("Select the teammates you worked with last week", teammates)
+        peer_ratings = {}
+        for peer in peer_evaluations:
+            rating = st.select_slider(f"Rate {peer}", options=["1 (Poor)", "2 (Fair)", "3 (Satisfactory)", "4 (Excellent)"], key=f"peer_rating_{peer}")
+            peer_ratings[peer] = int(rating.split(" ")[0])  # Extract the numeric rating
 
-                    # Convert peer ratings to a list of dictionaries
-                    peer_evaluations_list = [{"Peer": peer, "Rating": rating} for peer, rating in peer_ratings.items()]
+        # Convert peer ratings to a list of dictionaries
+        peer_evaluations_list = [{"Peer": peer, "Rating": rating} for peer, rating in peer_ratings.items()]
 
-                    # Calculate the team overall rating
-                    if peer_ratings:
-                        team_overall_rating = sum(peer_ratings.values()) / len(peer_ratings)
-                        st.write(f"Team Overall Rating: {team_overall_rating:.2f}")
-                    else:
-                        st.write("No peer evaluations provided.")
+        # Calculate the team overall rating
+        if peer_ratings:
+            team_overall_rating = sum(peer_ratings.values()) / len(peer_ratings)
+            st.write(f"Team Overall Rating: {team_overall_rating:.2f}")
+        else:
+            st.write("No peer evaluations provided.")
 
-                    # Display the entered information and save data
-                    if st.button("Submit"):
-                        data = {
-                            "Name": st.session_state['selected_name'],
-                            "Team": team,
-                            "Week Number": st.session_state['week_number'],
-                            "Year": current_year,
-                            "Completed Tasks": completed_tasks,
-                            "Number of Completed Tasks": num_completed_tasks,
-                            "Pending Tasks": pending_tasks,
-                            "Number of Pending Tasks": num_pending_tasks,
-                            "Dropped Tasks": dropped_tasks,
-                            "Number of Dropped Tasks": num_dropped_tasks,
-                            "Projects": projects if num_projects > 0 else [],
-                            "Productivity Rating": productivity_rating,
-                            "Productivity Suggestions": productivity_suggestions,
-                            "Productivity Details": productivity_details,
-                            "Productive Time": productive_time,
-                            "Productive Place": productive_place,
-                            "Peer_Evaluations": peer_evaluations_list
-                                }
-                    save_data(data)
-                    st.session_state['submitted'] = True
-                    st.session_state['submitted_week'] = st.session_state['week_number']
-                    st.markdown('<div class="success-message">WPR submitted successfully!</div>', unsafe_allow_html=True)
+        # Display the entered information and save data
+        if st.button("Submit"):
+            data = {
+                "Name": st.session_state['selected_name'],
+                "Team": team,
+                "Week Number": st.session_state['week_number'],
+                "Year": current_year,
+                "Completed Tasks": completed_tasks,
+                "Number of Completed Tasks": num_completed_tasks,
+                "Pending Tasks": pending_tasks,
+                "Number of Pending Tasks": num_pending_tasks,
+                "Dropped Tasks": dropped_tasks,
+                "Number of Dropped Tasks": num_dropped_tasks,
+                "Projects": projects if num_projects > 0 else [],
+                "Productivity Rating": productivity_rating,
+                "Productivity Suggestions": productivity_suggestions,
+                "Productivity Details": productivity_details,
+                "Productive Time": productive_time,
+                "Productive Place": productive_place,
+                "Peer_Evaluations": peer_evaluations_list
+            }
+            save_data(data)
+            st.session_state['submitted'] = True
+            st.session_state['submitted_week'] = st.session_state['week_number']
+            st.markdown('<div class="success-message">WPR submitted successfully!</div>', unsafe_allow_html=True)
