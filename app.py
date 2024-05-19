@@ -344,6 +344,7 @@ if st.session_state['show_peer_evaluation_section']:
         email_body = f"Dear {st.session_state['selected_name']},\n\nThank you for submitting your Weekly Progress Report. Here is a summary of your submission along with some insights and recommendations:\n\n{processed_output}\n\nBest regards,\nYour Organization"
         msg.attach(MIMEText(email_body, "plain"))
 
+
         with smtplib.SMTP(email_host, email_port) as server:
             server.starttls()
             server.login(email_username, email_password)
@@ -351,3 +352,19 @@ if st.session_state['show_peer_evaluation_section']:
 
         st.session_state['submitted'] = True
         st.markdown('<div class="success-message">WPR submitted successfully! Check your email for a summary.</div>', unsafe_allow_html=True)
+
+        try:
+            with smtplib.SMTP(email_host, email_port) as server:
+                server.starttls()
+                server.login(email_username, email_password)
+                server.send_message(msg)
+            st.success("Email sent successfully!")
+        except smtplib.SMTPServerDisconnected as e:
+            st.error(f"Failed to send email. SMTP server disconnected unexpectedly: {str(e)}")
+            st.warning("Please check your SMTP server configuration and network connection.")
+        except Exception as e:
+            st.error(f"An error occurred while sending the email: {str(e)}")
+
+        st.session_state['submitted'] = True
+        st.markdown('<div class="success-message">WPR submitted successfully! Check your email for a summary.</div>', unsafe_allow_html=True)
+
