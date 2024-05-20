@@ -311,7 +311,7 @@ if st.session_state['show_peer_evaluation_section']:
         [Bullet points of insights and recommendations based on the WPR data]
 
         To-do List: 
-        [A list of pending tasks this week]
+        [Bullet points of the list of pending tasks this week]
 
         Motivation:
         [A short motivational message for the employee]
@@ -323,7 +323,7 @@ if st.session_state['show_peer_evaluation_section']:
 
         Thanks from your IOL Team!
 
-        Address the recipient in second person point of view. Your response should be in markdown format.
+        Address the recipient in second person point of view. Your response should be in markdown format. Here is the text: 
 
         {submission_text}{anthropic.AI_PROMPT}"""
 
