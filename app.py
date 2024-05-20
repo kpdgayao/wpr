@@ -50,8 +50,8 @@ custom_css = """
 st.markdown(custom_css, unsafe_allow_html=True)
 
 # Display title and description
-st.markdown('<div class="title">Weekly Progress Report (WPR)</div>', unsafe_allow_html=True)
-st.write("Track and report your weekly productivity.")
+st.set_page_config(page_title="IOL Weekly Productivity Report", page_icon=":clipboard:")
+st.markdown('<div class="title">IOL Weekly Productivity Report (WPR)</div>', unsafe_allow_html=True)
 
 # Initialize session state
 if 'selected_name' not in st.session_state:
@@ -75,6 +75,10 @@ teams = {
     "Frontend Team": ["Amiel Bryan Gaudia", "George Libatique", "Joshua Aficial"],
     "Backend Team": ["Jeon Angelo Evangelista", "Katrina Gayao", "Renzo Ducusin"]
 }
+
+# Show current date today
+current_date = datetime.now().strftime("%B %d, %Y")
+st.write(f"Date Today: {current_date}")
 
 # Create a list of names with team information
 names = [f"{name} ({team})" for team, members in teams.items() for name in members]
@@ -251,7 +255,8 @@ if st.session_state['show_productivity_section']:
 
 if st.session_state['show_peer_evaluation_section']:
     # Add input fields for peer evaluation
-    st.markdown('<div class="section-header">Peer Evaluation</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header">Peer Evaluation (Evaluate Your Teammates)</div>', unsafe_allow_html=True)
+    st.write("Select the teammates you worked with last week and provide a rating for their performance.")
 
     # Get the selected user's team
     selected_team = st.session_state['selected_name'].split("(")[-1].split(")")[0]
@@ -301,12 +306,25 @@ if st.session_state['show_peer_evaluation_section']:
         save_data(data)
 
         # Format the submission text based on the user's saved data
-        submission_text = f"Name: {data['Name']}\nTeam: {data['Team']}\nWeek Number: {data['Week Number']}\nYear: {data['Year']}\n\nCompleted Tasks: {data['Completed Tasks']}\nNumber of Completed Tasks: {data['Number of Completed Tasks']}\n\nPending Tasks: {data['Pending Tasks']}\nNumber of Pending Tasks: {data['Number of Pending Tasks']}\n\nDropped Tasks: {data['Dropped Tasks']}\nNumber of Dropped Tasks: {data['Number of Dropped Tasks']}\n\nProjects: {data['Projects']}\n\nProductivity Rating: {data['Productivity Rating']}\nProductivity Suggestions: {data['Productivity Suggestions']}\nProductivity Details: {data['Productivity Details']}\nProductive Time: {data['Productive Time']}\nProductive Place: {data['Productive Place']}\n\nPeer Evaluations: {data['Peer_Evaluations']}"
+        submission_text = f"Name: {data['Name']}\nTeam: {data['Team']}\nWeek Number: {data['Week Number']}\nYear: {data['Year']}\n\nCompleted Tasks: {data['Completed Tasks']}\nNumber of Completed Tasks: {data['Number of Completed Tasks']}\n\nPending Tasks: {data['Pending Tasks']}\nNumber of Pending Tasks: {data['Number of Pending Tasks']}\n\nDropped Tasks: {data['Dropped Tasks']}\nNumber of Dropped Tasks: {data['Number of Dropped Tasks']}\n\nProjects: {data['Projects']}\n\nLast Week's Pending Tasks: {past_week_pending_tasks}\nLast Week's Projects: {past_week_projects}\n\nProductivity Rating: {data['Productivity Rating']}\nProductivity Suggestions: {data['Productivity Suggestions']}\nProductivity Details: {data['Productivity Details']}\nProductive Time: {data['Productive Time']}\nProductive Place: {data['Productive Place']}\n\nPeer Evaluations: {data['Peer_Evaluations']}"
 
         # Process the submission using Anthropic API
         anthropic_api_key = st.secrets["ANTHROPIC_API_KEY"]
         client = anthropic.Client(api_key=anthropic_api_key)
-        prompt = f"{anthropic.HUMAN_PROMPT} Please summarize the following text and provide actionable insights, recommendations, and motivation to the employee. Your response should be in plain text format, without any special formatting or markup.\n\n{submission_text}{anthropic.AI_PROMPT}"
+        prompt = f"{anthropic.HUMAN_PROMPT} Please summarize the following text and provide actionable insights, recommendations, and motivation to the employee. Format your response as follows:
+        Summary:
+        [Summary of the WPR submission]
+        Insights and Recommendations:
+        [Bullet points of insights and recommendations based on the WPR data]
+        Motivation:
+        [A short motivational message for the employee]
+        Productivity Tips:
+        1. [Practical tip 1]
+        2. [Practical tip 2] 
+        3. [Practical tip 3]
+        Thanks from your IOL Team!
+        Your response should be formatted professionally.
+        {submission_text}{anthropic.AI_PROMPT}"
 
         try:
             response = client.completions.create(
