@@ -311,20 +311,26 @@ if st.session_state['show_peer_evaluation_section']:
         # Process the submission using Anthropic API
         anthropic_api_key = st.secrets["ANTHROPIC_API_KEY"]
         client = anthropic.Client(api_key=anthropic_api_key)
-        prompt = f"{anthropic.HUMAN_PROMPT} Please summarize the following text and provide actionable insights, recommendations, and motivation to the employee. Format your response as follows:
+        prompt = f"""{anthropic.HUMAN_PROMPT} Please summarize the following text and provide actionable insights, recommendations, and motivation to the employee. Format your response as follows:
         Summary:
         [Summary of the WPR submission]
+
         Insights and Recommendations:
         [Bullet points of insights and recommendations based on the WPR data]
+
         Motivation:
         [A short motivational message for the employee]
+
         Productivity Tips:
         1. [Practical tip 1]
         2. [Practical tip 2] 
         3. [Practical tip 3]
+
         Thanks from your IOL Team!
-        Your response should be formatted professionally.
-        {submission_text}{anthropic.AI_PROMPT}"
+
+        Your response should be professionaly formatted.
+
+        {submission_text}{anthropic.AI_PROMPT}"""
 
         try:
             response = client.completions.create(
