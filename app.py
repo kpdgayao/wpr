@@ -300,11 +300,10 @@ if st.session_state['show_peer_evaluation_section']:
         # Process the submission using Anthropic API
         anthropic_api_key = st.secrets["ANTHROPIC_API_KEY"]
         client = anthropic.Client(api_key=anthropic_api_key)
-        prompt = f"""{anthropic.HUMAN_PROMPT} Please summarize the following text and provide actionable insights, things-to-do checklist, recommendations, and motivation to the employee. Format your response as follows:
+        prompt = f"""{anthropic.HUMAN_PROMPT} You are an HR productivity expert for IOL Inc., a systems development startup. Please summarize the following text from the Weekly Productivity Report and provide actionable insights, things-to-do checklist, recommendations, and motivation to the employee. Format your response as follows:
 
-        Summary:
         Hello! 
-        
+        Summary:
         [Summary of the WPR submission]
 
         Insights and Recommendations:
@@ -323,7 +322,7 @@ if st.session_state['show_peer_evaluation_section']:
 
         Thanks from your IOL Team!
 
-        Address the recipient in second person point of view. Your response should be in markdown format. Here is the text: 
+        Address the recipient in second person point of view and skip the preamble. Your response should be in markdown format. Here is the text: 
 
         {submission_text}{anthropic.AI_PROMPT}"""
 
