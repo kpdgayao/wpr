@@ -189,14 +189,21 @@ if st.session_state['show_task_section']:
 if st.session_state['show_project_section']:
     # Add input fields for projects
     st.markdown('<div class="section-header">Projects</div>', unsafe_allow_html=True)
-    projects = st.text_area("Projects (one per line, format: project name, completion percentage)")
+    st.write("Enter projects and their completion percentage (one per line, format: project name, completion percentage without '%' symbol)")
+    projects = st.text_area("Projects")
 
     # Convert projects to a list of dictionaries
     projects_list = []
     for project in projects.split("\n"):
         if project:
-            name, completion = project.rsplit(",", maxsplit=1)
-            projects_list.append({"name": name.strip(), "completion": float(completion.strip())})
+            try:
+                name, completion = project.rsplit(",", maxsplit=1)
+                completion = float(completion.strip())
+                if completion < 0 or completion > 100:
+                    raise ValueError("Completion percentage must be between 0 and 100")
+                projects_list.append({"name": name.strip(), "completion": completion})
+            except ValueError as e:
+                st.error(f"Invalid project format: {project}. {str(e)}")
 
     # Add a button to proceed to the productivity section
     if st.button("Next", key='project_next'):
@@ -212,16 +219,17 @@ if st.session_state['show_productivity_section']:
         key='productivity_rating'
     )
     productivity_suggestions = st.multiselect("Productivity Suggestions", [
-        "More Tools",
-        "More Supervision",
-        "Scheduled Breaks",
+        "More Tools or Resources",
+        "More Supervision/Instruction/Guidance",
+        "Scheduled Time for Self/Recreation/Rest",
         "Monetary Incentives",
         "Better Time Management",
-        "Improved Communication",
-        "Alignment Meetings",
-        "Collaborative Activities",
-        "Training and Development",
-        "Workload Balancing"
+        "More Teammates",
+        "Better Working Environment",
+        "More Training",
+        "Non-monetary",
+        "Workload Balancing", 
+        "Better Health"
     ])
     productivity_details = st.text_area("Please provide more details or examples")
 
@@ -292,25 +300,30 @@ if st.session_state['show_peer_evaluation_section']:
         # Process the submission using Anthropic API
         anthropic_api_key = st.secrets["ANTHROPIC_API_KEY"]
         client = anthropic.Client(api_key=anthropic_api_key)
-        prompt = f"""{anthropic.HUMAN_PROMPT} Please summarize the following text and provide actionable insights, recommendations, and motivation to the employee. Format your response as follows:
+        prompt = f"""{anthropic.HUMAN_PROMPT} Please summarize the following text and provide actionable insights, things-to-do checklist, recommendations, and motivation to the employee. Format your response as follows:
 
         Summary:
+        Hello! 
+        
         [Summary of the WPR submission]
 
         Insights and Recommendations:
         [Bullet points of insights and recommendations based on the WPR data]
 
+        To-do List: 
+        [A list of pending tasks this week]
+
         Motivation:
         [A short motivational message for the employee]
 
-        Productivity Tips:
+        Weekly Productivity Tips:
         1. [Practical tip 1]
         2. [Practical tip 2] 
         3. [Practical tip 3]
 
         Thanks from your IOL Team!
 
-        Your response should be professionally formatted.
+        Address the recipient in second person point of view. Your response should be in markdown format.
 
         {submission_text}{anthropic.AI_PROMPT}"""
 
