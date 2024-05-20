@@ -120,38 +120,40 @@ if st.session_state['show_task_section']:
         # Display the last 5 responses of the user
         st.markdown('<div class="section-header">Your Last 5 Responses</div>', unsafe_allow_html=True)
         user_data = load_data()
-        user_responses = user_data[user_data["Name"] == st.session_state['selected_name']].sort_values("Week Number", ascending=False).head(5)
-        
-        if not user_responses.empty:
-            # Create line charts for completed, pending, and dropped tasks
-            fig, ax = plt.subplots(figsize=(10, 6))
-            ax.plot(user_responses["Week Number"], user_responses["Number of Completed Tasks"], marker="o", label="Completed Tasks")
-            ax.plot(user_responses["Week Number"], user_responses["Number of Pending Tasks"], marker="o", label="Pending Tasks")
-            ax.plot(user_responses["Week Number"], user_responses["Number of Dropped Tasks"], marker="o", label="Dropped Tasks")
-            ax.set_xlabel("Week Number")
-            ax.set_ylabel("Number of Tasks")
-            ax.set_title("Task Trends")
-            ax.grid(True)
-            ax.legend()
-            st.pyplot(fig)
 
-            # Display projects for the past week
-            st.markdown('<div class="subsection-header">Projects for the Past Week</div>', unsafe_allow_html=True)
-            past_week_projects = user_responses.iloc[0]["Projects"]
-            if past_week_projects:
-                for project in past_week_projects:
-                    st.write(f"{project['name']}: {project['completion']}%")
-            else:
-                st.write("No projects found for the past week.")
+        if not user_data.empty and 'Name' in user_data.columns:
+            user_responses = user_data[user_data["Name"] == st.session_state['selected_name']].sort_values("Week Number", ascending=False).head(5)
             
-            # Display pending tasks from the previous week
-            st.markdown('<div class="subsection-header">Pending Tasks from Last Week</div>', unsafe_allow_html=True)
-            past_week_pending_tasks = user_responses.iloc[0]["Pending Tasks"]
-            if past_week_pending_tasks:
-                for task in past_week_pending_tasks:
-                    st.write(f"- {task}")
-            else:
-                st.write("No pending tasks from the previous week.")
+            if not user_responses.empty:
+                # Create line charts for completed, pending, and dropped tasks
+                fig, ax = plt.subplots(figsize=(10, 6))
+                ax.plot(user_responses["Week Number"], user_responses["Number of Completed Tasks"], marker="o", label="Completed Tasks")
+                ax.plot(user_responses["Week Number"], user_responses["Number of Pending Tasks"], marker="o", label="Pending Tasks")
+                ax.plot(user_responses["Week Number"], user_responses["Number of Dropped Tasks"], marker="o", label="Dropped Tasks")
+                ax.set_xlabel("Week Number")
+                ax.set_ylabel("Number of Tasks")
+                ax.set_title("Task Trends")
+                ax.grid(True)
+                ax.legend()
+                st.pyplot(fig)
+
+                # Display projects for the past week
+                st.markdown('<div class="subsection-header">Projects for the Past Week</div>', unsafe_allow_html=True)
+                past_week_projects = user_responses.iloc[0]["Projects"]
+                if past_week_projects:
+                    for project in past_week_projects:
+                        st.write(f"{project['name']}: {project['completion']}%")
+                else:
+                    st.write("No projects found for the past week.")
+                
+                # Display pending tasks from the previous week
+                st.markdown('<div class="subsection-header">Pending Tasks from Last Week</div>', unsafe_allow_html=True)
+                past_week_pending_tasks = user_responses.iloc[0]["Pending Tasks"]
+                if past_week_pending_tasks:
+                    for task in past_week_pending_tasks:
+                        st.write(f"- {task}")
+                else:
+                    st.write("No pending tasks from the previous week.")
         else:
             st.write("No previous responses found.")
 
@@ -310,7 +312,7 @@ if st.session_state['show_peer_evaluation_section']:
         [Bullet points of insights and recommendations based on the WPR data]
 
         To-do List: 
-        [Bullet points of the list of pending tasks this week]
+        [A list of pending tasks this week]
 
         Motivation:
         [A short motivational message for the employee]
