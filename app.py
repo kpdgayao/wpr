@@ -12,7 +12,7 @@ from mailjet_rest import Client
 import anthropic
 
 # Set page title and favicon
-st.set_page_config(page_title="Weekly Progress Report", page_icon=":clipboard:")
+st.set_page_config(page_title="IOL Weekly Productivity Report", page_icon=":clipboard:")
 
 # Define custom CSS styles
 custom_css = """
@@ -50,8 +50,8 @@ custom_css = """
 st.markdown(custom_css, unsafe_allow_html=True)
 
 # Display title and description
-st.set_page_config(page_title="IOL Weekly Productivity Report", page_icon=":clipboard:")
 st.markdown('<div class="title">IOL Weekly Productivity Report (WPR)</div>', unsafe_allow_html=True)
+st.write("Track and report your weekly productivity.")
 
 # Initialize session state
 if 'selected_name' not in st.session_state:
@@ -157,45 +157,27 @@ if st.session_state['show_task_section']:
 
         # Add input fields for task completion
         st.markdown('<div class="subsection-header">Task Completion</div>', unsafe_allow_html=True)
-        num_completed_tasks = st.number_input("Number of Completed Tasks", min_value=0, step=1, value=0)
-        completed_tasks = []
-        if num_completed_tasks > 0:
-            for i in range(int(num_completed_tasks)):
-                task = st.text_input(f"Completed Task {i+1}", key=f"completed_task_{i}")
-                completed_tasks.append(task)
-        else:
-            no_completed_tasks = st.checkbox("No Completed Tasks", value=True)
+        completed_tasks = st.text_area("Completed Tasks (one per line)")
+        pending_tasks = st.text_area("Pending Tasks (one per line)")
+        dropped_tasks = st.text_area("Dropped Tasks (one per line)")
 
-        num_pending_tasks = st.number_input("Number of Pending Tasks", min_value=0, step=1, value=0)
-        pending_tasks = []
-        if num_pending_tasks > 0:
-            for i in range(int(num_pending_tasks)):
-                task = st.text_input(f"Pending Task {i+1}", key=f"pending_task_{i}")
-                pending_tasks.append(task)
-        else:
-            no_pending_tasks = st.checkbox("No Pending Tasks", value=True)
-
-        num_dropped_tasks = st.number_input("Number of Dropped Tasks", min_value=0, step=1, value=0)
-        dropped_tasks = []
-        if num_dropped_tasks > 0:
-            for i in range(int(num_dropped_tasks)):
-                task = st.text_input(f"Dropped Task {i+1}", key=f"dropped_task_{i}")
-                dropped_tasks.append(task)
-        else:
-            no_dropped_tasks = st.checkbox("No Dropped Tasks", value=True)
+        # Convert tasks to lists
+        completed_tasks_list = completed_tasks.split("\n") if completed_tasks else []
+        pending_tasks_list = pending_tasks.split("\n") if pending_tasks else []
+        dropped_tasks_list = dropped_tasks.split("\n") if dropped_tasks else []
 
         # Calculate total tasks and percentages
-        total_tasks = num_completed_tasks + num_pending_tasks + num_dropped_tasks
-        completed_percentage = (num_completed_tasks / total_tasks) * 100 if total_tasks > 0 else 0
-        pending_percentage = (num_pending_tasks / total_tasks) * 100 if total_tasks > 0 else 0
-        dropped_percentage = (num_dropped_tasks / total_tasks) * 100 if total_tasks > 0 else 0
+        total_tasks = len(completed_tasks_list) + len(pending_tasks_list) + len(dropped_tasks_list)
+        completed_percentage = (len(completed_tasks_list) / total_tasks) * 100 if total_tasks > 0 else 0
+        pending_percentage = (len(pending_tasks_list) / total_tasks) * 100 if total_tasks > 0 else 0
+        dropped_percentage = (len(dropped_tasks_list) / total_tasks) * 100 if total_tasks > 0 else 0
 
         # Display task summary
         st.markdown('<div class="subsection-header">Task Summary</div>', unsafe_allow_html=True)
         st.write(f"Total Tasks: {total_tasks}")
-        st.write(f"Completed Tasks: {num_completed_tasks} ({completed_percentage:.2f}%)")
-        st.write(f"Pending Tasks: {num_pending_tasks} ({pending_percentage:.2f}%)")
-        st.write(f"Dropped Tasks: {num_dropped_tasks} ({dropped_percentage:.2f}%)")
+        st.write(f"Completed Tasks: {len(completed_tasks_list)} ({completed_percentage:.2f}%)")
+        st.write(f"Pending Tasks: {len(pending_tasks_list)} ({pending_percentage:.2f}%)")
+        st.write(f"Dropped Tasks: {len(dropped_tasks_list)} ({dropped_percentage:.2f}%)")
 
         # Add a button to proceed to the project section
         if st.button("Next", key='task_next'):
@@ -207,15 +189,14 @@ if st.session_state['show_task_section']:
 if st.session_state['show_project_section']:
     # Add input fields for projects
     st.markdown('<div class="section-header">Projects</div>', unsafe_allow_html=True)
-    num_projects = st.number_input("Number of Projects", min_value=0, step=1, value=0)
-    projects = []
-    if num_projects > 0:
-        for i in range(int(num_projects)):
-            project_name = st.text_input(f"Project {i+1} Name", key=f"project_name_{i}")
-            project_completion = st.number_input(f"Project {i+1} Completion (%)", min_value=0, max_value=100, step=1, key=f"project_completion_{i}")
-            projects.append({"name": project_name, "completion": project_completion})
-    else:
-        no_projects = st.checkbox("No Projects", value=True)
+    projects = st.text_area("Projects (one per line, format: project name, completion percentage)")
+
+    # Convert projects to a list of dictionaries
+    projects_list = []
+    for project in projects.split("\n"):
+        if project:
+            name, completion = project.rsplit(",", maxsplit=1)
+            projects_list.append({"name": name.strip(), "completion": float(completion.strip())})
 
     # Add a button to proceed to the productivity section
     if st.button("Next", key='project_next'):
@@ -289,13 +270,13 @@ if st.session_state['show_peer_evaluation_section']:
             "Team": team,
             "Week Number": st.session_state['week_number'],
             "Year": current_year,
-            "Completed Tasks": completed_tasks,
-            "Number of Completed Tasks": num_completed_tasks,
-            "Pending Tasks": pending_tasks,
-            "Number of Pending Tasks": num_pending_tasks,
-            "Dropped Tasks": dropped_tasks,
-            "Number of Dropped Tasks": num_dropped_tasks,
-            "Projects": projects if num_projects > 0 else [],
+            "Completed Tasks": completed_tasks_list,
+            "Number of Completed Tasks": len(completed_tasks_list),
+            "Pending Tasks": pending_tasks_list,
+            "Number of Pending Tasks": len(pending_tasks_list),
+            "Dropped Tasks": dropped_tasks_list,
+            "Number of Dropped Tasks": len(dropped_tasks_list),
+            "Projects": projects_list,
             "Productivity Rating": productivity_rating,
             "Productivity Suggestions": productivity_suggestions,
             "Productivity Details": productivity_details,
@@ -312,6 +293,7 @@ if st.session_state['show_peer_evaluation_section']:
         anthropic_api_key = st.secrets["ANTHROPIC_API_KEY"]
         client = anthropic.Client(api_key=anthropic_api_key)
         prompt = f"""{anthropic.HUMAN_PROMPT} Please summarize the following text and provide actionable insights, recommendations, and motivation to the employee. Format your response as follows:
+
         Summary:
         [Summary of the WPR submission]
 
@@ -328,7 +310,7 @@ if st.session_state['show_peer_evaluation_section']:
 
         Thanks from your IOL Team!
 
-        Your response should be professionaly formatted.
+        Your response should be professionally formatted.
 
         {submission_text}{anthropic.AI_PROMPT}"""
 
@@ -367,7 +349,7 @@ if st.session_state['show_peer_evaluation_section']:
                             "Name": st.session_state['selected_name']
                         }
                     ],
-                    "Subject": "Weekly Progress Report Summary",
+                    "Subject": "Weekly Productivity Report Summary",
                     "TextPart": processed_output
                 }
             ]
