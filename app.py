@@ -317,7 +317,7 @@ if st.session_state['show_peer_evaluation_section']:
         client = anthropic.Client(api_key=anthropic_api_key)
 
         # Define the system prompt
-        system_prompt = f"""You are an HR productivity expert for IOL Inc., a systems development startup. Please summarize the following text from the Weekly Productivity Report and provide actionable insights, things-to-do checklist, recommendations, and motivation to the employee. Format your response as follows:
+        system_prompt = """You are an HR productivity expert for IOL Inc., a systems development startup. Please summarize the following text from the Weekly Productivity Report and provide actionable insights, things-to-do checklist, recommendations, and motivation to the employee. Format your response as follows:
 
         Hello! 
         Summary:
@@ -344,16 +344,11 @@ if st.session_state['show_peer_evaluation_section']:
         # Define the user message
         user_message = f"Here is the text: \n\n{submission_text}"
 
-        # Create the messages list
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_message}
-        ]
-
         try:
             response = client.messages.create(
                 model="claude-3-opus-20240229",
-                messages=messages,
+                system=system_prompt,
+                messages=[{"role": "user", "content": user_message}],
                 max_tokens=1024,
             )
             processed_output = response.content[0].text
