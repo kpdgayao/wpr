@@ -312,34 +312,36 @@ if st.session_state['show_peer_evaluation_section']:
 
         submission_text += f"\nProductivity Rating: {data['Productivity Rating']}\nProductivity Suggestions: {data['Productivity Suggestions']}\nProductivity Details: {data['Productivity Details']}\nProductive Time: {data['Productive Time']}\nProductive Place: {data['Productive Place']}\n\nPeer Evaluations: {data['Peer_Evaluations']}"
 
-        # Process the submission using Anthropic API
+       # Process the submission using Anthropic API
         anthropic_api_key = st.secrets["ANTHROPIC_API_KEY"]
         client = anthropic.Client(api_key=anthropic_api_key)
 
         # Define the system prompt
         system_prompt = """You are an HR productivity expert for IOL Inc., a systems development startup. Please summarize the following text from the Weekly Productivity Report and provide actionable insights, things-to-do checklist, recommendations, and motivation to the employee. Format your response as follows:
 
-        Hello! 
-        Summary:
+        <h2>Hello!</h2> 
+        <h3>Summary:</h3>
         [Summary of the WPR submission]
 
-        Insights and Recommendations:
+        <h3>Insights and Recommendations:</h3>
         [Bullet points of insights and recommendations based on the WPR data]
 
-        To-do List: 
+        <h3>To-do List:</h3>
         [A list of pending tasks this week]
 
-        Motivation:
+        <h3>Motivation:</h3>
         [A short motivational message for the employee]
 
-        Weekly Productivity Tips:
-        1. [Practical tip 1]
-        2. [Practical tip 2] 
-        3. [Practical tip 3]
+        <h3>Weekly Productivity Tips:</h3>
+        <ol>
+        <li>[Practical tip 1]</li>
+        <li>[Practical tip 2]</li>
+        <li>[Practical tip 3]</li>
+        </ol>
 
-        Thanks from your IOL Team!
+        <p><strong>Thanks from your IOL Team!</strong></p>
 
-        Address the recipient in second person point of view and skip the preamble. Your response should be in markdown format."""
+        Address the recipient in second person point of view and skip the preamble. Your response should be in HTML format."""
 
         # Define the user message
         user_message = f"Here is the text: \n\n{submission_text}"
@@ -381,7 +383,7 @@ if st.session_state['show_peer_evaluation_section']:
                         }
                     ],
                     "Subject": "Weekly Productivity Report Summary",
-                    "TextPart": processed_output
+                    "HTMLPart": processed_output
                 }
             ]
         }
