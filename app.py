@@ -302,7 +302,9 @@ if st.session_state['show_peer_evaluation_section']:
         # Process the submission using Anthropic API
         anthropic_api_key = st.secrets["ANTHROPIC_API_KEY"]
         client = anthropic.Client(api_key=anthropic_api_key)
-        prompt = f"""{anthropic.HUMAN_PROMPT} You are an HR productivity expert for IOL Inc., a systems development startup. Please summarize the following text from the Weekly Productivity Report and provide actionable insights, things-to-do checklist, recommendations, and motivation to the employee. Format your response as follows:
+
+        # Define the system prompt
+        system_prompt = f"""You are an HR productivity expert for IOL Inc., a systems development startup. Please summarize the following text from the Weekly Productivity Report and provide actionable insights, things-to-do checklist, recommendations, and motivation to the employee. Format your response as follows:
 
         Hello! 
         Summary:
@@ -324,17 +326,24 @@ if st.session_state['show_peer_evaluation_section']:
 
         Thanks from your IOL Team!
 
-        Address the recipient in second person point of view and skip the preamble. Your response should be in markdown format. Here is the text: 
+        Address the recipient in second person point of view and skip the preamble. Your response should be in markdown format."""
 
-        {submission_text}{anthropic.AI_PROMPT}"""
+        # Define the user message
+        user_message = f"Here is the text: \n\n{submission_text}"
+
+        # Create the messages list
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_message}
+        ]
 
         try:
-            response = client.completions.create(
-                prompt=prompt,
-                model="claude-v1",
-                max_tokens_to_sample=1024,
+            response = client.messages.create(
+                model="claude-3-opus-20240229",
+                messages=messages,
+                max_tokens=1024,
             )
-            processed_output = response.completion
+            processed_output = response.content[0].text
         except anthropic.APIError as e:
             processed_output = f"Error occurred while processing the request. Please try again later. Error details: {str(e)}"
             st.error(f"Error occurred while processing the request. Please try again later. Error details: {str(e)}")
