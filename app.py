@@ -297,7 +297,20 @@ if st.session_state['show_peer_evaluation_section']:
         save_data(data)
 
         # Format the submission text based on the user's saved data
-        submission_text = f"Name: {data['Name']}\nTeam: {data['Team']}\nWeek Number: {data['Week Number']}\nYear: {data['Year']}\n\nCompleted Tasks: {data['Completed Tasks']}\nNumber of Completed Tasks: {data['Number of Completed Tasks']}\n\nPending Tasks: {data['Pending Tasks']}\nNumber of Pending Tasks: {data['Number of Pending Tasks']}\n\nDropped Tasks: {data['Dropped Tasks']}\nNumber of Dropped Tasks: {data['Number of Dropped Tasks']}\n\nProjects: {data['Projects']}\n\nLast Week's Pending Tasks: {past_week_pending_tasks}\nLast Week's Projects: {past_week_projects}\n\nProductivity Rating: {data['Productivity Rating']}\nProductivity Suggestions: {data['Productivity Suggestions']}\nProductivity Details: {data['Productivity Details']}\nProductive Time: {data['Productive Time']}\nProductive Place: {data['Productive Place']}\n\nPeer Evaluations: {data['Peer_Evaluations']}"
+        submission_text = f"Name: {data['Name']}\nTeam: {data['Team']}\nWeek Number: {data['Week Number']}\nYear: {data['Year']}\n\nCompleted Tasks: {data['Completed Tasks']}\nNumber of Completed Tasks: {data['Number of Completed Tasks']}\n\nPending Tasks: {data['Pending Tasks']}\nNumber of Pending Tasks: {data['Number of Pending Tasks']}\n\nDropped Tasks: {data['Dropped Tasks']}\nNumber of Dropped Tasks: {data['Number of Dropped Tasks']}\n\nProjects: {data['Projects']}\n\n"
+
+        # Add last week's pending tasks and projects if available
+        if 'past_week_pending_tasks' in locals():
+            submission_text += f"Last Week's Pending Tasks: {past_week_pending_tasks}\n"
+        else:
+            submission_text += "Last Week's Pending Tasks: Not available\n"
+
+        if 'past_week_projects' in locals():
+            submission_text += f"Last Week's Projects: {past_week_projects}\n"
+        else:
+            submission_text += "Last Week's Projects: Not available\n"
+
+        submission_text += f"\nProductivity Rating: {data['Productivity Rating']}\nProductivity Suggestions: {data['Productivity Suggestions']}\nProductivity Details: {data['Productivity Details']}\nProductive Time: {data['Productive Time']}\nProductive Place: {data['Productive Place']}\n\nPeer Evaluations: {data['Peer_Evaluations']}"
 
         # Process the submission using Anthropic API
         anthropic_api_key = st.secrets["ANTHROPIC_API_KEY"]
