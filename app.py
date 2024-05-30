@@ -355,7 +355,7 @@ if st.session_state['show_peer_evaluation_section']:
 
     user_email = st.text_input("Enter your email address")
 
-# Display the entered information and save data
+    # Display the entered information and save data
     if st.button("Submit"):
         data = {
             "Name": st.session_state['selected_name'],
@@ -381,7 +381,7 @@ if st.session_state['show_peer_evaluation_section']:
         with st.spinner("Saving data..."):
             if edit_mode:
                 # Update the existing submission
-                supabase.table("wpr_data").upsert(data).eq("Name", st.session_state['selected_name']).eq("Week Number", st.session_state['week_number']).execute()
+                supabase.table("wpr_data").update(data).eq("Name", st.session_state['selected_name']).eq("Week Number", st.session_state['week_number']).execute()
             else:
                 # Create a new submission
                 supabase.table("wpr_data").insert(data).execute()
