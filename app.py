@@ -173,10 +173,14 @@ if not user_data.empty:
         st.session_state['productive_time'] = previous_submission["Productive Time"]
         st.session_state['productive_place'] = previous_submission["Productive Place"]
         st.session_state['peer_evaluations'] = [peer['Peer'] for peer in previous_submission["Peer_Evaluations"]]
+        # Add a checkbox to allow the user to edit their previous submission
+        edit_mode = st.checkbox("Edit Previous Submission")
     else:
         st.session_state['submitted'] = False
+        edit_mode = False
 else:
     st.session_state['submitted'] = False
+    edit_mode = False
 
     # Display the selected week's dates
     selected_week_start, selected_week_end = get_week_dates(st.session_state['week_number'], current_year)
@@ -233,9 +237,9 @@ if st.session_state['show_task_section']:
 
         # Add input fields for task completion
         st.markdown('<div class="subsection-header">Task Completion</div>', unsafe_allow_html=True)
-        completed_tasks = st.text_area("Completed Tasks (one per line)", value=st.session_state.get('completed_tasks', ''), key='completed_tasks')
-        pending_tasks = st.text_area("Pending Tasks (one per line)", value=st.session_state.get('pending_tasks', ''), key='pending_tasks')
-        dropped_tasks = st.text_area("Dropped Tasks (one per line)", value=st.session_state.get('dropped_tasks', ''), key='dropped_tasks')
+        completed_tasks = st.text_area("Completed Tasks (one per line)", default=st.session_state.get('completed_tasks', ''), key='completed_tasks')
+        pending_tasks = st.text_area("Pending Tasks (one per line)", default=st.session_state.get('pending_tasks', ''), key='pending_tasks')
+        dropped_tasks = st.text_area("Dropped Tasks (one per line)", default=st.session_state.get('dropped_tasks', ''), key='dropped_tasks')
 
         # Convert tasks to lists
         completed_tasks_list = completed_tasks.split("\n") if completed_tasks else []
@@ -351,8 +355,8 @@ if st.session_state['show_peer_evaluation_section']:
 
     user_email = st.text_input("Enter your email address")
 
-    # Display the entered information and save data
-    if st.button("Submit") and not st.session_state['submitted']:
+# Display the entered information and save data
+    if st.button("Submit"):
         data = {
             "Name": st.session_state['selected_name'],
             "Team": team,
@@ -375,9 +379,14 @@ if st.session_state['show_peer_evaluation_section']:
     
         # Display progress indicator while saving data
         with st.spinner("Saving data..."):
-            save_data(data)
-            st.success("Data saved successfully!")  
-
+            if edit_mode:
+                # Update the existing submission
+                supabase.table("wpr_data").upsert(data).eq("Name", st.session_state['selected_name']).eq("Week Number", st.session_state['week_number']).execute()
+            else:
+                # Create a new submission
+                supabase.table("wpr_data").insert(data).execute()
+            
+            st.success("Data saved successfully!")
 
         # **Updated code start**
         # Format the submission text based on the user's saved data
