@@ -355,8 +355,11 @@ if st.session_state['show_peer_evaluation_section']:
 
     user_email = st.text_input("Enter your email address")
 
-    # Display the entered information and save data
+# Display the entered information and save data
     if st.button("Submit"):
+        # Get the selected week's dates
+        selected_week_start, selected_week_end = get_week_dates(st.session_state['week_number'], current_year)
+        
         data = {
             "Name": st.session_state['selected_name'],
             "Team": team,
@@ -395,16 +398,16 @@ if st.session_state['show_peer_evaluation_section']:
         Week Number: {data['Week Number']}
         Week Dates: {selected_week_start} - {selected_week_end}
         Year: {data['Year']}
-
+        
         Completed Tasks: {data['Completed Tasks']}
         Number of Completed Tasks: {data['Number of Completed Tasks']}
-
+        
         Pending Tasks: {data['Pending Tasks']}
         Number of Pending Tasks: {data['Number of Pending Tasks']}
-
+        
         Dropped Tasks: {data['Dropped Tasks']}
         Number of Dropped Tasks: {data['Number of Dropped Tasks']}
-
+        
         Projects: {data['Projects']}
         """
 
