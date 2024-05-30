@@ -216,9 +216,6 @@ if st.session_state['show_project_section']:
     st.write("Enter projects and their completion percentage (one per line, format: project name, completion percentage without '%' symbol)")
     projects = st.text_area("Projects", value=st.session_state['projects'], key='projects')
 
-    # Update session state variable with user's entered value
-    st.session_state['projects'] = projects
-
     # Convert projects to a list of dictionaries
     projects_list = []
     for project in projects.split("\n"):
@@ -260,19 +257,10 @@ if st.session_state['show_productivity_section']:
     ], default=st.session_state['productivity_suggestions'], key='productivity_suggestions')
     productivity_details = st.text_area("Please provide more details or examples", value=st.session_state['productivity_details'], key='productivity_details')
 
-    # Update session state variables with user's entered values
-    st.session_state['productivity_rating'] = productivity_rating
-    st.session_state['productivity_suggestions'] = productivity_suggestions
-    st.session_state['productivity_details'] = productivity_details
-
     # Add input fields for time and place of productivity
     st.markdown('<div class="subsection-header">Time and Place of Productivity</div>', unsafe_allow_html=True)
     productive_time = st.radio("What time are you most productive last week?", ["8am - 12nn", "12nn - 4pm", "4pm - 8pm", "8pm - 12mn"], index=["8am - 12nn", "12nn - 4pm", "4pm - 8pm", "8pm - 12mn"].index(st.session_state['productive_time']), key='productive_time')
     productive_place = st.radio("Where do you prefer to work based on your experience from last week?", ["Office", "Home"], index=["Office", "Home"].index(st.session_state['productive_place']), key='productive_place')
-
-    # Update session state variables with user's selected values
-    st.session_state['productive_time'] = productive_time
-    st.session_state['productive_place'] = productive_place
 
     # Add a button to proceed to the peer evaluation section
     if st.button("Next", key='productivity_next'):
@@ -290,9 +278,6 @@ if st.session_state['show_peer_evaluation_section']:
     teammates = [name for name in names if selected_team in name and name != st.session_state['selected_name']]
 
     peer_evaluations = st.multiselect("Select the teammates you worked with last week", teammates, default=st.session_state['peer_evaluations'], key='peer_evaluations')
-    
-    # Update session state variable with user's selected values
-    st.session_state['peer_evaluations'] = peer_evaluations
 
     peer_ratings = {}
     for peer in peer_evaluations:
@@ -309,7 +294,7 @@ if st.session_state['show_peer_evaluation_section']:
     else:
         st.write("No peer evaluations provided.")
 
-    user_email = st.text_input("Enter your email address")      
+    user_email = st.text_input("Enter your email address")
 
     # Add this code block before the "Submit" button
     user_data = load_data()
