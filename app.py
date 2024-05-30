@@ -310,21 +310,22 @@ if st.session_state['show_peer_evaluation_section']:
     # Add input fields for peer evaluation
     st.markdown('<div class="section-header">Peer Evaluation (Evaluate Your Teammates)</div>', unsafe_allow_html=True)
     st.write("Select the teammates you worked with last week and provide a rating for their performance.")
-    valid_peer_evaluations = [peer for peer in st.session_state.get('peer_evaluations', []) if peer in teammates]
-    
+
     # Get the selected user's team
     selected_team = st.session_state['selected_name'].split("(")[-1].split(")")[0]
 
     # Get the list of teammates for the selected user
     teammates = [name for name in names if selected_team in name and name != st.session_state['selected_name']]
 
+    valid_peer_evaluations = [peer for peer in st.session_state.get('peer_evaluations', []) if peer in teammates]
+
     peer_evaluations = st.multiselect("Select the teammates you worked with last week", teammates, default=valid_peer_evaluations, key='peer_evaluations')
 
     peer_ratings = {}
     for peer in peer_evaluations:
         rating = st.radio(f"Rate {peer}", options=["1", "2", "3", "4"], key=f"peer_rating_{peer}")
-        if rating: # add a check if a rating was selected
-            peer_ratings[peer] = int(rating)  
+        if rating:  # add a check if a rating was selected
+            peer_ratings[peer] = int(rating)
 
     # Convert peer ratings to a list of dictionaries
     peer_evaluations_list = [{"Peer": peer, "Rating": peer_ratings.get(peer, 0)} for peer in peer_evaluations]
