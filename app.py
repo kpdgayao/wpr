@@ -181,9 +181,14 @@ if st.session_state['show_task_section']:
 
         # Add input fields for task completion
         st.markdown('<div class="subsection-header">Task Completion</div>', unsafe_allow_html=True)
-        completed_tasks = st.text_area("Completed Tasks (one per line)", value=st.session_state['completed_tasks'], key='completed_tasks')
-        pending_tasks = st.text_area("Pending Tasks (one per line)", value=st.session_state['pending_tasks'], key='pending_tasks')
-        dropped_tasks = st.text_area("Dropped Tasks (one per line)", value=st.session_state['dropped_tasks'], key='dropped_tasks')
+        completed_tasks = st.text_area("Completed Tasks (one per line)", value=st.session_state.get('completed_tasks', ''), key='completed_tasks')
+        pending_tasks = st.text_area("Pending Tasks (one per line)", value=st.session_state.get('pending_tasks', ''), key='pending_tasks')
+        dropped_tasks = st.text_area("Dropped Tasks (one per line)", value=st.session_state.get('dropped_tasks', ''), key='dropped_tasks')
+
+        # Store the entered values in the session state
+        st.session_state['completed_tasks'] = completed_tasks
+        st.session_state['pending_tasks'] = pending_tasks
+        st.session_state['dropped_tasks'] = dropped_tasks
 
         # Convert tasks to lists
         completed_tasks_list = completed_tasks.split("\n") if completed_tasks else []
@@ -277,11 +282,17 @@ if st.session_state['show_peer_evaluation_section']:
     # Get the list of teammates for the selected user
     teammates = [name for name in names if selected_team in name and name != st.session_state['selected_name']]
 
-    peer_evaluations = st.multiselect("Select the teammates you worked with last week", teammates, default=st.session_state['peer_evaluations'], key='peer_evaluations')
+    peer_evaluations = st.multiselect("Select the teammates you worked with last week", teammates, default=st.session_state.get('peer_evaluations', []), key='peer_evaluations')
+
+    # Store the selected peers in the session state
+    st.session_state['peer_evaluations'] = peer_evaluations
 
     peer_ratings = {}
     for peer in peer_evaluations:
-        rating = st.select_slider(f"Rate {peer}", options=["1 (Poor)", "2 (Fair)", "3 (Satisfactory)", "4 (Excellent)"], key=f"peer_rating_{peer}")
+        rating_key = f"peer_rating_{peer}"
+        if rating_key not in st.session_state:
+            st.session_state[rating_key] = "3 (Satisfactory)"
+        rating = st.select_slider(f"Rate {peer}", options=["1 (Poor)", "2 (Fair)", "3 (Satisfactory)", "4 (Excellent)"], key=rating_key)
         peer_ratings[peer] = int(rating.split(" ")[0])  # Extract the numeric rating
 
     # Convert peer ratings to a list of dictionaries
@@ -293,14 +304,6 @@ if st.session_state['show_peer_evaluation_section']:
         st.write(f"Team Overall Rating: {team_overall_rating:.2f}")
     else:
         st.write("No peer evaluations provided.")
-
-    # Add this code block before the "Submit" button
-    user_data = load_data()
-    if not user_data.empty:
-        user_submissions = user_data[(user_data["Name"] == st.session_state['selected_name']) & (user_data["Week Number"] == st.session_state['week_number'])]
-        if not user_submissions.empty:
-            st.warning("You have already submitted a report for this week.")
-            st.session_state['submitted'] = True
 
     user_email = st.text_input("Enter your email address")
 
