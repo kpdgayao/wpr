@@ -451,7 +451,7 @@ if st.session_state['show_peer_evaluation_section']:
         [Create a to-do list for the employee based on their pending tasks and projects. Prioritize tasks and provide guidance on how to approach them effectively.]
 
         <h3>Peer Feedback:</h3>
-        [Summarize the peer evaluations provided by the employee as the evaluator. Offer insights on how the employee can contribute to team collaboration and support their teammates.]
+        [Summarize how the employee evaluated his or her peers. Employee has rated his or her peers from 1 to 4, with 1 being the lowest and 4 highest. Offer insights on how the employee can contribute to team collaboration and support the employee's teammates.]
 
         <h3>Motivation:</h3>
         [Provide a motivational message to encourage the employee to maintain or improve their productivity. Recognize their efforts and achievements.]
