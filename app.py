@@ -339,8 +339,17 @@ if st.session_state['show_peer_evaluation_section']:
 
     user_email = st.text_input("Enter your email address")
 
-    # Display the entered information and save data
-    if st.button("Submit") and not st.session_state['submitted']:
+    if st.button("Submit"):
+        # Print a message to indicate that the submit button was clicked
+        print("Submit button clicked")
+
+        # Print the values of the form fields
+        print("Completed Tasks:", completed_tasks)
+        print("Pending Tasks:", pending_tasks)
+        print("Dropped Tasks:", dropped_tasks)
+        # ... print other form field values
+
+        # Print the constructed data object
         data = {
             "Name": st.session_state['selected_name'],
             "Team": team,
@@ -360,11 +369,10 @@ if st.session_state['show_peer_evaluation_section']:
             "Productive Place": productive_place,
             "Peer_Evaluations": peer_evaluations_list
         }
+        print("Data object:", data)
 
-        # Display progress indicator while saving data
-        with st.spinner("Saving data..."):
-            save_data(data)
-            st.success("Data saved successfully!")  
+        # Print a message before executing the Supabase update query
+        print("Executing Supabase update query...")
 
         # Format the submission text based on the user's saved data
         submission_text = f"Name: {data['Name']}\nTeam: {data['Team']}\nWeek Number: {data['Week Number']}\nYear: {data['Year']}\n\nCompleted Tasks: {data['Completed Tasks']}\nNumber of Completed Tasks: {data['Number of Completed Tasks']}\n\nPending Tasks: {data['Pending Tasks']}\nNumber of Pending Tasks: {data['Number of Pending Tasks']}\n\nDropped Tasks: {data['Dropped Tasks']}\nNumber of Dropped Tasks: {data['Number of Dropped Tasks']}\n\nProjects: {data['Projects']}\n\n"
