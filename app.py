@@ -10,6 +10,18 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from mailjet_rest import Client
 import anthropic
+from dotenv import load_dotenv
+from supabase import create_client
+
+# Load environment variables from .env file
+load_dotenv()
+
+# Retrieve Supabase URL and API key from environment variables
+url = os.getenv("SUPABASE_URL")
+key = os.getenv("SUPABASE_KEY")
+
+# Initialize the Supabase client
+supabase = create_client(url, key)
 
 # Set page title and favicon
 st.set_page_config(page_title="IOL Weekly Productivity Report", page_icon=":clipboard:")
@@ -339,17 +351,8 @@ if st.session_state['show_peer_evaluation_section']:
 
     user_email = st.text_input("Enter your email address")
 
-    if st.button("Submit"):
-        # Print a message to indicate that the submit button was clicked
-        print("Submit button clicked")
-
-        # Print the values of the form fields
-        print("Completed Tasks:", completed_tasks)
-        print("Pending Tasks:", pending_tasks)
-        print("Dropped Tasks:", dropped_tasks)
-        # ... print other form field values
-
-        # Print the constructed data object
+    # Display the entered information and save data
+    if st.button("Submit") and not st.session_state['submitted']:
         data = {
             "Name": st.session_state['selected_name'],
             "Team": team,
@@ -369,13 +372,31 @@ if st.session_state['show_peer_evaluation_section']:
             "Productive Place": productive_place,
             "Peer_Evaluations": peer_evaluations_list
         }
-        print("Data object:", data)
+    
+        # Display progress indicator while saving data
+        with st.spinner("Saving data..."):
+            save_data(data)
+            st.success("Data saved successfully!")  
 
-        # Print a message before executing the Supabase update query
-        print("Executing Supabase update query...")
 
+        # **Updated code start**
         # Format the submission text based on the user's saved data
-        submission_text = f"Name: {data['Name']}\nTeam: {data['Team']}\nWeek Number: {data['Week Number']}\nYear: {data['Year']}\n\nCompleted Tasks: {data['Completed Tasks']}\nNumber of Completed Tasks: {data['Number of Completed Tasks']}\n\nPending Tasks: {data['Pending Tasks']}\nNumber of Pending Tasks: {data['Number of Pending Tasks']}\n\nDropped Tasks: {data['Dropped Tasks']}\nNumber of Dropped Tasks: {data['Number of Dropped Tasks']}\n\nProjects: {data['Projects']}\n\n"
+        submission_text = f"""Name: {data['Name']}
+    Team: {data['Team']}
+    Week Number: {data['Week Number']}
+    Year: {data['Year']}
+
+    Completed Tasks: {data['Completed Tasks']}
+    Number of Completed Tasks: {data['Number of Completed Tasks']}
+
+    Pending Tasks: {data['Pending Tasks']}
+    Number of Pending Tasks: {data['Number of Pending Tasks']}
+
+    Dropped Tasks: {data['Dropped Tasks']}
+    Number of Dropped Tasks: {data['Number of Dropped Tasks']}
+
+    Projects: {data['Projects']}
+    """
 
         # Add last week's pending tasks and projects if available
         if 'past_week_pending_tasks' in locals():
@@ -388,8 +409,16 @@ if st.session_state['show_peer_evaluation_section']:
         else:
             submission_text += "Last Week's Projects: Not available\n"
 
-        submission_text += f"\nProductivity Rating: {data['Productivity Rating']}\nProductivity Suggestions: {data['Productivity Suggestions']}\nProductivity Details: {data['Productivity Details']}\nProductive Time: {data['Productive Time']}\nProductive Place: {data['Productive Place']}\n\nPeer Evaluations: {data['Peer_Evaluations']}"
+        submission_text += f"""
+    Productivity Rating: {data['Productivity Rating']}
+    Productivity Suggestions: {data['Productivity Suggestions']}
+    Productivity Details: {data['Productivity Details']}
+    Productive Time: {data['Productive Time']}
+    Productive Place: {data['Productive Place']}
 
+    Peer Evaluations: {data['Peer_Evaluations']}
+    """
+    # **Updated code end**
        # Process the submission using Anthropic API
         anthropic_api_key = st.secrets["ANTHROPIC_API_KEY"]
         client = anthropic.Client(api_key=anthropic_api_key)
