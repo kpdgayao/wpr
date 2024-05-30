@@ -141,17 +141,30 @@ st.write(f"Selected Week: Week {st.session_state['week_number']}, {current_year}
 if st.button("Proceed") and st.session_state['selected_name']:
     st.session_state['show_task_section'] = True
 
-    # Check if the user has already submitted a report for the selected week
-    user_data = load_data()
-    if not user_data.empty:
-        user_submissions = user_data[(user_data["Name"] == st.session_state['selected_name']) & (user_data["Week Number"] == st.session_state['week_number'])]
-        if not user_submissions.empty:
-            st.warning("You have already submitted a report for this week.")
-            st.session_state['submitted'] = True
-        else:
-            st.session_state['submitted'] = False
+# Check if the user has already submitted a report for the selected week
+user_data = load_data()
+if not user_data.empty:
+    user_submissions = user_data[(user_data["Name"] == st.session_state['selected_name']) & (user_data["Week Number"] == st.session_state['week_number'])]
+    if not user_submissions.empty:
+        st.warning("You have already submitted a report for this week.")
+        st.session_state['submitted'] = True
+        
+        # Load the user's previous submission data
+        previous_submission = user_submissions.iloc[0]
+        st.session_state['completed_tasks'] = "\n".join(previous_submission["Completed Tasks"])
+        st.session_state['pending_tasks'] = "\n".join(previous_submission["Pending Tasks"])
+        st.session_state['dropped_tasks'] = "\n".join(previous_submission["Dropped Tasks"])
+        st.session_state['projects'] = "\n".join([f"{project['name']}, {project['completion']}" for project in previous_submission["Projects"]])
+        st.session_state['productivity_rating'] = previous_submission["Productivity Rating"]
+        st.session_state['productivity_suggestions'] = previous_submission["Productivity Suggestions"]
+        st.session_state['productivity_details'] = previous_submission["Productivity Details"]
+        st.session_state['productive_time'] = previous_submission["Productive Time"]
+        st.session_state['productive_place'] = previous_submission["Productive Place"]
+        st.session_state['peer_evaluations'] = [f"{peer['Peer']} ({peer['Rating']})" for peer in previous_submission["Peer_Evaluations"]]
     else:
         st.session_state['submitted'] = False
+else:
+    st.session_state['submitted'] = False
 
     # Display the selected week's dates
     selected_week_start, selected_week_end = get_week_dates(st.session_state['week_number'], current_year)
@@ -241,7 +254,7 @@ if st.session_state['show_project_section']:
     # Add input fields for projects
     st.markdown('<div class="section-header">Projects</div>', unsafe_allow_html=True)
     st.write("Enter projects and their completion percentage (one per line, format: project name, completion percentage without '%' symbol)")
-    projects = st.text_area("Projects", value=st.session_state['projects'], key='projects')
+    projects = st.text_area("Projects", value=st.session_state.get('projects', ''), key='projects')
 
     # Convert projects to a list of dictionaries
     projects_list = []
@@ -266,7 +279,7 @@ if st.session_state['show_productivity_section']:
     productivity_rating = st.select_slider(
         "Productivity Rating",
         options=['1 - Not Productive', '2 - Somewhat Productive', '3 - Productive', '4 - Very Productive'],
-        value=st.session_state['productivity_rating'],
+        value=st.session_state.get('productivity_rating', '3 - Productive'),
         key='productivity_rating'
     )
     productivity_suggestions = st.multiselect("Productivity Suggestions", [
@@ -281,13 +294,13 @@ if st.session_state['show_productivity_section']:
         "Non-monetary",
         "Workload Balancing", 
         "Better Health"
-    ], default=st.session_state['productivity_suggestions'], key='productivity_suggestions')
-    productivity_details = st.text_area("Please provide more details or examples", value=st.session_state['productivity_details'], key='productivity_details')
+    ], default=st.session_state.get('productivity_suggestions', []), key='productivity_suggestions')
+    productivity_details = st.text_area("Please provide more details or examples", value=st.session_state.get('productivity_details', ''), key='productivity_details')
 
     # Add input fields for time and place of productivity
     st.markdown('<div class="subsection-header">Time and Place of Productivity</div>', unsafe_allow_html=True)
-    productive_time = st.radio("What time are you most productive last week?", ["8am - 12nn", "12nn - 4pm", "4pm - 8pm", "8pm - 12mn"], index=["8am - 12nn", "12nn - 4pm", "4pm - 8pm", "8pm - 12mn"].index(st.session_state['productive_time']), key='productive_time')
-    productive_place = st.radio("Where do you prefer to work based on your experience from last week?", ["Office", "Home"], index=["Office", "Home"].index(st.session_state['productive_place']), key='productive_place')
+    productive_time = st.radio("What time are you most productive last week?", ["8am - 12nn", "12nn - 4pm", "4pm - 8pm", "8pm - 12mn"], index=["8am - 12nn", "12nn - 4pm", "4pm - 8pm", "8pm - 12mn"].index(st.session_state.get('productive_time', "8am - 12nn")), key='productive_time')
+    productive_place = st.radio("Where do you prefer to work based on your experience from last week?", ["Office", "Home"], index=["Office", "Home"].index(st.session_state.get('productive_place', "Office")), key='productive_place')
 
     # Add a button to proceed to the peer evaluation section
     if st.button("Next", key='productivity_next'):
@@ -304,12 +317,13 @@ if st.session_state['show_peer_evaluation_section']:
     # Get the list of teammates for the selected user
     teammates = [name for name in names if selected_team in name and name != st.session_state['selected_name']]
 
-    peer_evaluations = st.multiselect("Select the teammates you worked with last week", teammates)
+    peer_evaluations = st.multiselect("Select the teammates you worked with last week", teammates, default=st.session_state.get('peer_evaluations', []), key='peer_evaluations')
 
     peer_ratings = {}
     for peer in peer_evaluations:
         rating = st.radio(f"Rate {peer}", options=["1", "2", "3", "4"], key=f"peer_rating_{peer}")
-        peer_ratings[peer] = int(rating)
+        if rating: # add a check if a rating was selected
+            peer_ratings[peer] = int(rating)  
 
     # Convert peer ratings to a list of dictionaries
     peer_evaluations_list = [{"Peer": peer, "Rating": peer_ratings.get(peer, 0)} for peer in peer_evaluations]
