@@ -91,6 +91,16 @@ if 'productive_place' not in st.session_state:
 if 'peer_evaluations' not in st.session_state:
     st.session_state['peer_evaluations'] = []
 
+# Define the get_week_dates function
+from datetime import datetime, timedelta
+
+def get_week_dates(week_number, year):
+    first_day_of_year = datetime(year, 1, 1)
+    first_monday_of_year = first_day_of_year + timedelta(days=(7 - first_day_of_year.weekday()) % 7)
+    selected_week_start = first_monday_of_year + timedelta(weeks=week_number - 1)
+    selected_week_end = selected_week_start + timedelta(days=6)
+    return selected_week_start.strftime("%B %d, %Y"), selected_week_end.strftime("%B %d, %Y")
+
 # Define teams and their members
 teams = {
     "Business Services Team": ["Abigail Visperas", "Cristian Jay Duque", "Kevin Philip Gayao", "Kurt Lee Gayao", "Maria Luisa Reynante", "Jester Pedrosa"],
@@ -130,6 +140,23 @@ st.write(f"Selected Week: Week {st.session_state['week_number']}, {current_year}
 # Add a button to proceed to the task section
 if st.button("Proceed") and st.session_state['selected_name']:
     st.session_state['show_task_section'] = True
+
+    # Check if the user has already submitted a report for the selected week
+    user_data = load_data()
+    if not user_data.empty:
+        user_submissions = user_data[(user_data["Name"] == st.session_state['selected_name']) & (user_data["Week Number"] == st.session_state['week_number'])]
+        if not user_submissions.empty:
+            st.warning("You have already submitted a report for this week.")
+            st.session_state['submitted'] = True
+        else:
+            st.session_state['submitted'] = False
+    else:
+        st.session_state['submitted'] = False
+
+    # Display the selected week's dates
+    selected_week_start, selected_week_end = get_week_dates(st.session_state['week_number'], current_year)
+    st.write(f"Selected Week: Week {st.session_state['week_number']}, {current_year}")
+    st.write(f"Week Dates: {selected_week_start} - {selected_week_end}")
 
 if st.session_state['show_task_section']:
     if st.session_state['selected_name'] in names:
