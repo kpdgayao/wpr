@@ -391,21 +391,22 @@ if st.session_state['show_peer_evaluation_section']:
         # **Updated code start**
         # Format the submission text based on the user's saved data
         submission_text = f"""Name: {data['Name']}
-    Team: {data['Team']}
-    Week Number: {data['Week Number']}
-    Year: {data['Year']}
+        Team: {data['Team']}
+        Week Number: {data['Week Number']}
+        Week Dates: {selected_week_start} - {selected_week_end}
+        Year: {data['Year']}
 
-    Completed Tasks: {data['Completed Tasks']}
-    Number of Completed Tasks: {data['Number of Completed Tasks']}
+        Completed Tasks: {data['Completed Tasks']}
+        Number of Completed Tasks: {data['Number of Completed Tasks']}
 
-    Pending Tasks: {data['Pending Tasks']}
-    Number of Pending Tasks: {data['Number of Pending Tasks']}
+        Pending Tasks: {data['Pending Tasks']}
+        Number of Pending Tasks: {data['Number of Pending Tasks']}
 
-    Dropped Tasks: {data['Dropped Tasks']}
-    Number of Dropped Tasks: {data['Number of Dropped Tasks']}
+        Dropped Tasks: {data['Dropped Tasks']}
+        Number of Dropped Tasks: {data['Number of Dropped Tasks']}
 
-    Projects: {data['Projects']}
-    """
+        Projects: {data['Projects']}
+        """
 
         # Add last week's pending tasks and projects if available
         if 'past_week_pending_tasks' in locals():
@@ -433,7 +434,7 @@ if st.session_state['show_peer_evaluation_section']:
         client = anthropic.Client(api_key=anthropic_api_key)
 
         # Define the system prompt
-        system_prompt = """You are an HR productivity expert for IOL Inc., a systems development startup. Please summarize the following text from the Weekly Productivity Report and provide actionable insights, a to-do checklist, recommendations, and motivation to the employee. 
+        system_prompt = f"""You are an HR productivity expert for IOL Inc., a systems development startup. Please summarize the following text from the Weekly Productivity Report for Week {st.session_state['week_number']} ({selected_week_start} - {selected_week_end}) and provide actionable insights, a to-do checklist, recommendations, and motivation to the employee. 
 
         The report includes the employee's completed tasks, pending tasks, dropped tasks, projects, productivity self-evaluation, and peer evaluations provided by the employee as the evaluator.
 
@@ -442,24 +443,24 @@ if st.session_state['show_peer_evaluation_section']:
         <h2>Hello, [Employee Name]!</h2>
 
         <h3>Summary:</h3>
-        [Provide a brief summary of the employee's productivity based on their completed tasks, pending tasks, dropped tasks, and projects.]
+        [Provide a brief summary of the employee's productivity based on their completed tasks, pending tasks, dropped tasks, and projects for Week {st.session_state['week_number']} ({selected_week_start} - {selected_week_end}).]
 
         <h3>Insights and Recommendations:</h3>
-        [Offer insights and recommendations based on the employee's productivity data and self-evaluation. Highlight areas of strength and suggest areas for improvement.]
+        [Offer insights and recommendations based on the employee's productivity data and self-evaluation for Week {st.session_state['week_number']}. Highlight areas of strength and suggest areas for improvement.]
 
         <h3>To-do List:</h3>
-        [Create a to-do list for the employee based on their pending tasks and projects. Prioritize tasks and provide guidance on how to approach them effectively.]
+        [Create a to-do list for the employee based on their pending tasks and projects for the upcoming week. Prioritize tasks and provide guidance on how to approach them effectively.]
 
         <h3>Peer Feedback:</h3>
-        [Summarize how the employee evaluated his or her peers. Employee has rated his or her peers from 1 to 4, with 1 being the lowest and 4 highest. Offer insights on how the employee can contribute to team collaboration and support the employee's teammates.]
+        [Summarize how the employee evaluated his or her peers for Week {st.session_state['week_number']}. Employee has rated his or her peers from 1 to 4, with 1 being the lowest and 4 highest. Offer insights on how the employee can contribute to team collaboration and support the employee's teammates.]
 
         <h3>Motivation:</h3>
-        [Provide a motivational message to encourage the employee to maintain or improve their productivity. Recognize their efforts and achievements.]
+        [Provide a motivational message to encourage the employee to maintain or improve their productivity for the upcoming week. Recognize their efforts and achievements from Week {st.session_state['week_number']}.]
 
         <h3>Weekly Productivity Tips:</h3>
         <ol>
-        <li>[Offer a practical tip to enhance productivity based on the employee's self-evaluation and productivity data.]</li>
-        <li>[Provide another tip to help the employee manage their tasks and projects effectively.]</li>
+        <li>[Offer a practical tip to enhance productivity based on the employee's self-evaluation and productivity data for Week {st.session_state['week_number']}.]</li>
+        <li>[Provide another tip to help the employee manage their tasks and projects effectively in the upcoming week.]</li>
         <li>[Suggest a strategy to maintain work-life balance and prevent burnout.]</li>
         </ol>
 
