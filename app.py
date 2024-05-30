@@ -344,31 +344,42 @@ if st.session_state['show_peer_evaluation_section']:
         client = anthropic.Client(api_key=anthropic_api_key)
 
         # Define the system prompt
-        system_prompt = """You are an HR productivity expert for IOL Inc., a systems development startup. Please summarize the following text from the Weekly Productivity Report and provide actionable insights, things-to-do checklist, recommendations, and motivation to the employee. Format your response as follows:
+        system_prompt = """You are an HR productivity expert for IOL Inc., a systems development startup. Please summarize the following text from the Weekly Productivity Report and provide actionable insights, a to-do checklist, recommendations, and motivation to the employee. 
 
-        <h2>Hello!</h2> 
+        The report includes the employee's completed tasks, pending tasks, dropped tasks, projects, productivity self-evaluation, and peer evaluations provided by the employee as the evaluator.
+
+        Format your response as follows:
+
+        <h2>Hello, [Employee Name]!</h2>
+
         <h3>Summary:</h3>
-        [Summary of the WPR submission]
+        [Provide a brief summary of the employee's productivity based on their completed tasks, pending tasks, dropped tasks, and projects.]
 
         <h3>Insights and Recommendations:</h3>
-        [Bullet points of insights and recommendations based on the WPR data]
+        [Offer insights and recommendations based on the employee's productivity data and self-evaluation. Highlight areas of strength and suggest areas for improvement.]
 
         <h3>To-do List:</h3>
-        [A list of pending tasks this week]
+        [Create a to-do list for the employee based on their pending tasks and projects. Prioritize tasks and provide guidance on how to approach them effectively.]
+
+        <h3>Peer Feedback:</h3>
+        [Summarize the peer evaluations provided by the employee as the evaluator. Offer insights on how the employee can contribute to team collaboration and support their teammates.]
 
         <h3>Motivation:</h3>
-        [A short motivational message for the employee]
+        [Provide a motivational message to encourage the employee to maintain or improve their productivity. Recognize their efforts and achievements.]
 
         <h3>Weekly Productivity Tips:</h3>
         <ol>
-        <li>[Practical tip 1]</li>
-        <li>[Practical tip 2]</li>
-        <li>[Practical tip 3]</li>
+        <li>[Offer a practical tip to enhance productivity based on the employee's self-evaluation and productivity data.]</li>
+        <li>[Provide another tip to help the employee manage their tasks and projects effectively.]</li>
+        <li>[Suggest a strategy to maintain work-life balance and prevent burnout.]</li>
         </ol>
 
-        <p><strong>Thanks from your IOL Team!</strong></p>
+        <p><strong>Keep up the great work, [Employee Name]! Your contributions are valued and appreciated.</strong></p>
 
-        Address the recipient in second person point of view and skip the preamble. Your response should be in HTML format."""
+        <p>Best regards,<br>
+        The IOL Inc. Team</p>
+
+        Address the recipient in the second person point of view and skip the preamble. Your response should be in HTML format."""
 
         # Define the user message
         user_message = f"Here is the text: \n\n{submission_text}"
