@@ -160,7 +160,7 @@ if not user_data.empty:
         st.session_state['productivity_details'] = previous_submission["Productivity Details"]
         st.session_state['productive_time'] = previous_submission["Productive Time"]
         st.session_state['productive_place'] = previous_submission["Productive Place"]
-        st.session_state['peer_evaluations'] = [f"{peer['Peer']} ({peer['Rating']})" for peer in previous_submission["Peer_Evaluations"]]
+        st.session_state['peer_evaluations'] = [peer['Peer'] for peer in previous_submission["Peer_Evaluations"]]
     else:
         st.session_state['submitted'] = False
 else:
@@ -310,14 +310,15 @@ if st.session_state['show_peer_evaluation_section']:
     # Add input fields for peer evaluation
     st.markdown('<div class="section-header">Peer Evaluation (Evaluate Your Teammates)</div>', unsafe_allow_html=True)
     st.write("Select the teammates you worked with last week and provide a rating for their performance.")
-
+    valid_peer_evaluations = [peer for peer in st.session_state.get('peer_evaluations', []) if peer in teammates]
+    
     # Get the selected user's team
     selected_team = st.session_state['selected_name'].split("(")[-1].split(")")[0]
 
     # Get the list of teammates for the selected user
     teammates = [name for name in names if selected_team in name and name != st.session_state['selected_name']]
 
-    peer_evaluations = st.multiselect("Select the teammates you worked with last week", teammates, default=st.session_state.get('peer_evaluations', []), key='peer_evaluations')
+    peer_evaluations = st.multiselect("Select the teammates you worked with last week", teammates, default=valid_peer_evaluations, key='peer_evaluations')
 
     peer_ratings = {}
     for peer in peer_evaluations:
