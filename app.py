@@ -481,10 +481,10 @@ if st.session_state['show_peer_evaluation_section']:
         with st.spinner("Processing submission..."):
             try:
                 response = client.messages.create(
-                    model="claude-3-opus-20240229",
+                    model="claude-3-sonnet-20240229",
                     system=system_prompt,
                     messages=[{"role": "user", "content": user_message}],
-                    max_tokens=1024,
+                    max_tokens=2000,
                 )
                 processed_output = response.content[0].text
                 st.success("Submission processed successfully!")
