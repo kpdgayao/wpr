@@ -185,11 +185,6 @@ if st.session_state['show_task_section']:
         pending_tasks = st.text_area("Pending Tasks (one per line)", value=st.session_state['pending_tasks'], key='pending_tasks')
         dropped_tasks = st.text_area("Dropped Tasks (one per line)", value=st.session_state['dropped_tasks'], key='dropped_tasks')
 
-        # Update session state variables with user's entered values
-        st.session_state['completed_tasks'] = completed_tasks
-        st.session_state['pending_tasks'] = pending_tasks
-        st.session_state['dropped_tasks'] = dropped_tasks
-
         # Convert tasks to lists
         completed_tasks_list = completed_tasks.split("\n") if completed_tasks else []
         pending_tasks_list = pending_tasks.split("\n") if pending_tasks else []
