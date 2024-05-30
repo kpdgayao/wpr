@@ -277,14 +277,11 @@ if st.session_state['show_peer_evaluation_section']:
     # Get the list of teammates for the selected user
     teammates = [name for name in names if selected_team in name and name != st.session_state['selected_name']]
 
-    peer_evaluations = st.multiselect("Select the teammates you worked with last week", teammates, default=st.session_state.get('peer_evaluations', []), key='peer_evaluations')
+    peer_evaluations = st.multiselect("Select the teammates you worked with last week", teammates)
 
     peer_ratings = {}
     for peer in peer_evaluations:
-        rating_key = f"peer_rating_{peer}"
-        if rating_key not in st.session_state:
-            st.session_state[rating_key] = "3"
-        rating = st.radio(f"Rate {peer}", options=["1", "2", "3", "4"], index=int(st.session_state[rating_key])-1, key=rating_key)
+        rating = st.radio(f"Rate {peer}", options=["1", "2", "3", "4"], key=f"peer_rating_{peer}")
         peer_ratings[peer] = int(rating)
 
     # Convert peer ratings to a list of dictionaries
