@@ -294,8 +294,6 @@ if st.session_state['show_peer_evaluation_section']:
     else:
         st.write("No peer evaluations provided.")
 
-    user_email = st.text_input("Enter your email address")
-
     # Add this code block before the "Submit" button
     user_data = load_data()
     if not user_data.empty:
@@ -303,6 +301,8 @@ if st.session_state['show_peer_evaluation_section']:
         if not user_submissions.empty:
             st.warning("You have already submitted a report for this week.")
             st.session_state['submitted'] = True
+
+    user_email = st.text_input("Enter your email address")
 
     # Display the entered information and save data
     if st.button("Submit") and not st.session_state['submitted']:
@@ -426,16 +426,16 @@ if st.session_state['show_peer_evaluation_section']:
             ]
         }
 
-    # Display progress indicator while sending the email
-    with st.spinner("Sending email..."):
-        try:
-            result = mailjet.send.create(data=email_data)
-            print(f"Email sent with status code: {result.status_code}")
-            st.success("Email sent successfully!")
-        except Exception as e:
-            print(f"Error sending email: {str(e)}")
-            st.error(f"An error occurred while sending the email: {str(e)}")
+        # Display progress indicator while sending the email
+        with st.spinner("Sending email..."):
+            try:
+                result = mailjet.send.create(data=email_data)
+                print(f"Email sent with status code: {result.status_code}")
+                st.success("Email sent successfully!")
+            except Exception as e:
+                print(f"Error sending email: {str(e)}")
+                st.error(f"An error occurred while sending the email: {str(e)}")
 
-    st.session_state['submitted'] = True
-    st.markdown('<div class="success-message">WPR submitted successfully! Check your email for a summary.</div>', unsafe_allow_html=True)
+        st.session_state['submitted'] = True
+        st.markdown('<div class="success-message">WPR submitted successfully! Check your email for a summary.</div>', unsafe_allow_html=True)
 
