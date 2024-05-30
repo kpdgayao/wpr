@@ -279,9 +279,6 @@ if st.session_state['show_peer_evaluation_section']:
 
     peer_evaluations = st.multiselect("Select the teammates you worked with last week", teammates, default=st.session_state.get('peer_evaluations', []), key='peer_evaluations')
 
-    # Store the selected peers in the session state
-    st.session_state['peer_evaluations'] = peer_evaluations
-
     peer_ratings = {}
     for peer in peer_evaluations:
         rating_key = f"peer_rating_{peer}"
