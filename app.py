@@ -69,6 +69,28 @@ if 'show_peer_evaluation_section' not in st.session_state:
 if 'submitted' not in st.session_state:
     st.session_state['submitted'] = False
 
+# Initialize session state variables for storing user responses
+if 'completed_tasks' not in st.session_state:
+    st.session_state['completed_tasks'] = ""
+if 'pending_tasks' not in st.session_state:
+    st.session_state['pending_tasks'] = ""
+if 'dropped_tasks' not in st.session_state:
+    st.session_state['dropped_tasks'] = ""
+if 'projects' not in st.session_state:
+    st.session_state['projects'] = ""
+if 'productivity_rating' not in st.session_state:
+    st.session_state['productivity_rating'] = '3 - Productive'
+if 'productivity_suggestions' not in st.session_state:
+    st.session_state['productivity_suggestions'] = []
+if 'productivity_details' not in st.session_state:
+    st.session_state['productivity_details'] = ""
+if 'productive_time' not in st.session_state:
+    st.session_state['productive_time'] = "8am - 12nn"
+if 'productive_place' not in st.session_state:
+    st.session_state['productive_place'] = "Office"
+if 'peer_evaluations' not in st.session_state:
+    st.session_state['peer_evaluations'] = []
+
 # Define teams and their members
 teams = {
     "Business Services Team": ["Abigail Visperas", "Cristian Jay Duque", "Kevin Philip Gayao", "Kurt Lee Gayao", "Maria Luisa Reynante", "Jester Pedrosa"],
@@ -159,9 +181,14 @@ if st.session_state['show_task_section']:
 
         # Add input fields for task completion
         st.markdown('<div class="subsection-header">Task Completion</div>', unsafe_allow_html=True)
-        completed_tasks = st.text_area("Completed Tasks (one per line)")
-        pending_tasks = st.text_area("Pending Tasks (one per line)")
-        dropped_tasks = st.text_area("Dropped Tasks (one per line)")
+        completed_tasks = st.text_area("Completed Tasks (one per line)", value=st.session_state['completed_tasks'], key='completed_tasks')
+        pending_tasks = st.text_area("Pending Tasks (one per line)", value=st.session_state['pending_tasks'], key='pending_tasks')
+        dropped_tasks = st.text_area("Dropped Tasks (one per line)", value=st.session_state['dropped_tasks'], key='dropped_tasks')
+
+        # Update session state variables with user's entered values
+        st.session_state['completed_tasks'] = completed_tasks
+        st.session_state['pending_tasks'] = pending_tasks
+        st.session_state['dropped_tasks'] = dropped_tasks
 
         # Convert tasks to lists
         completed_tasks_list = completed_tasks.split("\n") if completed_tasks else []
@@ -192,7 +219,10 @@ if st.session_state['show_project_section']:
     # Add input fields for projects
     st.markdown('<div class="section-header">Projects</div>', unsafe_allow_html=True)
     st.write("Enter projects and their completion percentage (one per line, format: project name, completion percentage without '%' symbol)")
-    projects = st.text_area("Projects")
+    projects = st.text_area("Projects", value=st.session_state['projects'], key='projects')
+
+    # Update session state variable with user's entered value
+    st.session_state['projects'] = projects
 
     # Convert projects to a list of dictionaries
     projects_list = []
@@ -217,7 +247,7 @@ if st.session_state['show_productivity_section']:
     productivity_rating = st.select_slider(
         "Productivity Rating",
         options=['1 - Not Productive', '2 - Somewhat Productive', '3 - Productive', '4 - Very Productive'],
-        value='3 - Productive',
+        value=st.session_state['productivity_rating'],
         key='productivity_rating'
     )
     productivity_suggestions = st.multiselect("Productivity Suggestions", [
@@ -232,13 +262,22 @@ if st.session_state['show_productivity_section']:
         "Non-monetary",
         "Workload Balancing", 
         "Better Health"
-    ])
-    productivity_details = st.text_area("Please provide more details or examples")
+    ], default=st.session_state['productivity_suggestions'], key='productivity_suggestions')
+    productivity_details = st.text_area("Please provide more details or examples", value=st.session_state['productivity_details'], key='productivity_details')
+
+    # Update session state variables with user's entered values
+    st.session_state['productivity_rating'] = productivity_rating
+    st.session_state['productivity_suggestions'] = productivity_suggestions
+    st.session_state['productivity_details'] = productivity_details
 
     # Add input fields for time and place of productivity
     st.markdown('<div class="subsection-header">Time and Place of Productivity</div>', unsafe_allow_html=True)
-    productive_time = st.radio("What time are you most productive last week?", ["8am - 12nn", "12nn - 4pm", "4pm - 8pm", "8pm - 12mn"])
-    productive_place = st.radio("Where do you prefer to work based on your experience from last week?", ["Office", "Home"])
+    productive_time = st.radio("What time are you most productive last week?", ["8am - 12nn", "12nn - 4pm", "4pm - 8pm", "8pm - 12mn"], index=["8am - 12nn", "12nn - 4pm", "4pm - 8pm", "8pm - 12mn"].index(st.session_state['productive_time']), key='productive_time')
+    productive_place = st.radio("Where do you prefer to work based on your experience from last week?", ["Office", "Home"], index=["Office", "Home"].index(st.session_state['productive_place']), key='productive_place')
+
+    # Update session state variables with user's selected values
+    st.session_state['productive_time'] = productive_time
+    st.session_state['productive_place'] = productive_place
 
     # Add a button to proceed to the peer evaluation section
     if st.button("Next", key='productivity_next'):
@@ -255,7 +294,11 @@ if st.session_state['show_peer_evaluation_section']:
     # Get the list of teammates for the selected user
     teammates = [name for name in names if selected_team in name and name != st.session_state['selected_name']]
 
-    peer_evaluations = st.multiselect("Select the teammates you worked with last week", teammates)
+    peer_evaluations = st.multiselect("Select the teammates you worked with last week", teammates, default=st.session_state['peer_evaluations'], key='peer_evaluations')
+    
+    # Update session state variable with user's selected values
+    st.session_state['peer_evaluations'] = peer_evaluations
+
     peer_ratings = {}
     for peer in peer_evaluations:
         rating = st.select_slider(f"Rate {peer}", options=["1 (Poor)", "2 (Fair)", "3 (Satisfactory)", "4 (Excellent)"], key=f"peer_rating_{peer}")
@@ -272,6 +315,14 @@ if st.session_state['show_peer_evaluation_section']:
         st.write("No peer evaluations provided.")
 
     user_email = st.text_input("Enter your email address")      
+
+    # Add this code block before the "Submit" button
+    user_data = load_data()
+    if not user_data.empty:
+        user_submissions = user_data[(user_data["Name"] == st.session_state['selected_name']) & (user_data["Week Number"] == st.session_state['week_number'])]
+        if not user_submissions.empty:
+            st.warning("You have already submitted a report for this week.")
+            st.session_state['submitted'] = True
 
     # Display the entered information and save data
     if st.button("Submit") and not st.session_state['submitted']:
@@ -294,7 +345,11 @@ if st.session_state['show_peer_evaluation_section']:
             "Productive Place": productive_place,
             "Peer_Evaluations": peer_evaluations_list
         }
-        save_data(data)
+
+        # Display progress indicator while saving data
+        with st.spinner("Saving data..."):
+            save_data(data)
+            st.success("Data saved successfully!")  
 
         # Format the submission text based on the user's saved data
         submission_text = f"Name: {data['Name']}\nTeam: {data['Team']}\nWeek Number: {data['Week Number']}\nYear: {data['Year']}\n\nCompleted Tasks: {data['Completed Tasks']}\nNumber of Completed Tasks: {data['Number of Completed Tasks']}\n\nPending Tasks: {data['Pending Tasks']}\nNumber of Pending Tasks: {data['Number of Pending Tasks']}\n\nDropped Tasks: {data['Dropped Tasks']}\nNumber of Dropped Tasks: {data['Number of Dropped Tasks']}\n\nProjects: {data['Projects']}\n\n"
@@ -346,20 +401,23 @@ if st.session_state['show_peer_evaluation_section']:
         # Define the user message
         user_message = f"Here is the text: \n\n{submission_text}"
 
-        try:
-            response = client.messages.create(
-                model="claude-3-opus-20240229",
-                system=system_prompt,
-                messages=[{"role": "user", "content": user_message}],
-                max_tokens=1024,
-            )
-            processed_output = response.content[0].text
-        except anthropic.APIError as e:
-            processed_output = f"Error occurred while processing the request. Please try again later. Error details: {str(e)}"
-            st.error(f"Error occurred while processing the request. Please try again later. Error details: {str(e)}")
-        except Exception as e:
-            processed_output = f"An unexpected error occurred. Please try again later. Error details: {str(e)}"
-            st.error(f"An unexpected error occurred. Please try again later. Error details: {str(e)}")
+        # Display progress indicator while processing the submission
+        with st.spinner("Processing submission..."):
+            try:
+                response = client.messages.create(
+                    model="claude-3-opus-20240229",
+                    system=system_prompt,
+                    messages=[{"role": "user", "content": user_message}],
+                    max_tokens=1024,
+                )
+                processed_output = response.content[0].text
+                st.success("Submission processed successfully!")
+            except anthropic.APIError as e:
+                processed_output = f"Error occurred while processing the request. Please try again later. Error details: {str(e)}"
+                st.error(f"Error occurred while processing the request. Please try again later. Error details: {str(e)}")
+            except Exception as e:
+                processed_output = f"An unexpected error occurred. Please try again later. Error details: {str(e)}"
+                st.error(f"An unexpected error occurred. Please try again later. Error details: {str(e)}")
 
         # Mailjet API credentials
         api_key = os.environ['MAILJET_API_KEY']
@@ -388,7 +446,8 @@ if st.session_state['show_peer_evaluation_section']:
             ]
         }
 
-        # Send the email using Mailjet API
+    # Display progress indicator while sending the email
+    with st.spinner("Sending email..."):
         try:
             result = mailjet.send.create(data=email_data)
             print(f"Email sent with status code: {result.status_code}")
@@ -397,6 +456,6 @@ if st.session_state['show_peer_evaluation_section']:
             print(f"Error sending email: {str(e)}")
             st.error(f"An error occurred while sending the email: {str(e)}")
 
-        st.session_state['submitted'] = True
-        st.markdown('<div class="success-message">WPR submitted successfully! Check your email for a summary.</div>', unsafe_allow_html=True)
+    st.session_state['submitted'] = True
+    st.markdown('<div class="success-message">WPR submitted successfully! Check your email for a summary.</div>', unsafe_allow_html=True)
 
