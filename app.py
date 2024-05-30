@@ -283,9 +283,9 @@ if st.session_state['show_peer_evaluation_section']:
     for peer in peer_evaluations:
         rating_key = f"peer_rating_{peer}"
         if rating_key not in st.session_state:
-            st.session_state[rating_key] = "3 (Satisfactory)"
-        rating = st.select_slider(f"Rate {peer}", options=["1 (Poor)", "2 (Fair)", "3 (Satisfactory)", "4 (Excellent)"], value=st.session_state[rating_key], key=rating_key)
-        peer_ratings[peer] = int(rating.split(" ")[0])  # Extract the numeric rating
+            st.session_state[rating_key] = "3"
+        rating = st.radio(f"Rate {peer}", options=["1", "2", "3", "4"], index=int(st.session_state[rating_key])-1, key=rating_key)
+        peer_ratings[peer] = int(rating)
 
     # Convert peer ratings to a list of dictionaries
     peer_evaluations_list = [{"Peer": peer, "Rating": peer_ratings.get(peer, 0)} for peer in peer_evaluations]
@@ -298,7 +298,7 @@ if st.session_state['show_peer_evaluation_section']:
         st.write("No peer evaluations provided.")
 
     user_email = st.text_input("Enter your email address")
-    
+
     # Display the entered information and save data
     if st.button("Submit") and not st.session_state['submitted']:
         data = {
