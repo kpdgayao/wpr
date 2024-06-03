@@ -232,7 +232,10 @@ with st.container():
         st.write("No peer evaluations available in the filtered data.")
     else:
         # Convert ratings to numeric, handling errors
-        peer_evaluations["Rating"] = pd.to_numeric(peer_evaluations["Rating"], errors="coerce")
+        if "Rating" in peer_evaluations.columns:
+            peer_evaluations["Rating"] = pd.to_numeric(peer_evaluations["Rating"], errors="coerce")
+        else:
+            st.write("The 'Rating' column is missing in the peer evaluations data.")
 
         # Extract and clean the name part from the "Peer" column
         peer_evaluations["Peer"] = peer_evaluations["Peer"].astype(str).apply(lambda x: x.split(" (")[0])
