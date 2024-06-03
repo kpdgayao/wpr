@@ -234,54 +234,54 @@ with st.container():
         if peer_evaluations.empty:
             st.write("No peer evaluations available in the filtered data.")
         else:
-            # Convert the series to a list and normalize the peer evaluations data
+            # Convert the series to a list
             peer_evaluations_list = peer_evaluations.tolist()
             
-            # Filter out empty lists
-            peer_evaluations_list = [eval for eval in peer_evaluations_list if eval]
+            # Extract "Peer" and "Rating" values from the list of dictionaries
+            peer_data = []
+            for eval_list in peer_evaluations_list:
+                for eval_dict in eval_list:
+                    if "Peer" in eval_dict and "Rating" in eval_dict:
+                        peer_data.append({"Peer": eval_dict["Peer"], "Rating": eval_dict["Rating"]})
             
-            if not peer_evaluations_list:
+            if not peer_data:
                 st.write("No valid peer evaluations found.")
             else:
-                peer_evaluations_df = pd.json_normalize(peer_evaluations_list)
+                peer_evaluations_df = pd.DataFrame(peer_data)
 
-                # Check if "Peer" and "Rating" columns exist
-                if "Peer" not in peer_evaluations_df.columns or "Rating" not in peer_evaluations_df.columns:
-                    st.write("The 'Peer' or 'Rating' column is missing in the peer evaluations data.")
+                # Extract and clean the name part from the "Peer" column
+                peer_evaluations_df["Peer"] = peer_evaluations_df["Peer"].astype(str).apply(lambda x: x.split(" (")[0])
+                filtered_data["Name"] = filtered_data["Name"].astype(str).apply(lambda x: x.split(" (")[0])
+
+                # Convert ratings to numeric, handling errors
+                peer_evaluations_df["Rating"] = pd.to_numeric(peer_evaluations_df["Rating"], errors="coerce")
+
+                # Calculate the average peer rating for each employee
+                employee_ratings = peer_evaluations_df.groupby(["Peer"])["Rating"].mean().reset_index()
+
+                # Validate employee names before merging
+                valid_employee_names = set(filtered_data["Name"])
+                employee_ratings = employee_ratings[employee_ratings["Peer"].isin(valid_employee_names)]
+
+                # Merge employee ratings with employee names
+                employee_ratings = employee_ratings.merge(filtered_data[["Name"]], left_on="Peer", right_on="Name", how="left")
+                
+                # Remove NaN ratings or names
+                employee_ratings = employee_ratings.dropna(subset=['Rating', 'Name'])
+
+                # Check if there are valid peer evaluations after merging
+                if not employee_ratings.empty:
+                    # Sort employees based on their average peer rating
+                    top_rated_employees = employee_ratings.sort_values("Rating", ascending=False)
+
+                    # Display the top-rated employees
+                    styled_peer_rankings = top_rated_employees[["Name", "Rating"]].head(5).style.set_properties(**{'text-align': 'center'}).set_table_styles([
+                        {'selector': 'th', 'props': [('background-color', '#f0f0f0'), ('color', '#000000'), ('font-weight', 'bold')]},
+                        {'selector': 'td', 'props': [('padding', '8px')]}
+                    ])
+                    st.write(styled_peer_rankings.to_html(index=False), unsafe_allow_html=True)
                 else:
-                    # Extract and clean the name part from the "Peer" column
-                    peer_evaluations_df["Peer"] = peer_evaluations_df["Peer"].astype(str).apply(lambda x: x.split(" (")[0])
-                    filtered_data["Name"] = filtered_data["Name"].astype(str).apply(lambda x: x.split(" (")[0])
-
-                    # Convert ratings to numeric, handling errors
-                    peer_evaluations_df["Rating"] = pd.to_numeric(peer_evaluations_df["Rating"], errors="coerce")
-
-                    # Calculate the average peer rating for each employee
-                    employee_ratings = peer_evaluations_df.groupby(["Peer"])["Rating"].mean().reset_index()
-
-                    # Validate employee names before merging
-                    valid_employee_names = set(filtered_data["Name"])
-                    employee_ratings = employee_ratings[employee_ratings["Peer"].isin(valid_employee_names)]
-
-                    # Merge employee ratings with employee names
-                    employee_ratings = employee_ratings.merge(filtered_data[["Name"]], left_on="Peer", right_on="Name", how="left")
-                    
-                    # Remove NaN ratings or names
-                    employee_ratings = employee_ratings.dropna(subset=['Rating', 'Name'])
-
-                    # Check if there are valid peer evaluations after merging
-                    if not employee_ratings.empty:
-                        # Sort employees based on their average peer rating
-                        top_rated_employees = employee_ratings.sort_values("Rating", ascending=False)
-
-                        # Display the top-rated employees
-                        styled_peer_rankings = top_rated_employees[["Name", "Rating"]].head(5).style.set_properties(**{'text-align': 'center'}).set_table_styles([
-                            {'selector': 'th', 'props': [('background-color', '#f0f0f0'), ('color', '#000000'), ('font-weight', 'bold')]},
-                            {'selector': 'td', 'props': [('padding', '8px')]}
-                        ])
-                        st.write(styled_peer_rankings.to_html(index=False), unsafe_allow_html=True)
-                    else:
-                        st.write("No valid peer evaluations or matching employee names found.")
+                    st.write("No valid peer evaluations or matching employee names found.")
 
 #Provide insights on team collaboration
 with st.container():
