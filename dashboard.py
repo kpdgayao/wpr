@@ -232,30 +232,17 @@ with st.container():
         st.write("No peer evaluations available in the filtered data.")
     else:
         # Normalize the peer evaluations data
-        peer_evaluations = peer_evaluations[0].apply(pd.Series) if isinstance(peer_evaluations[0], list) else pd.DataFrame(columns=["Peer", "Rating"])
-        peer_evaluations['Rating'] = pd.to_numeric(peer_evaluations['Rating'], errors='coerce')
-        
-        # Remove rows with NaN values in the 'Rating' column
-        peer_evaluations = peer_evaluations.dropna(subset=['Rating'])
-        
-        # Extract only the name part from the "Peer" column BEFORE converting to numeric
-        peer_evaluations.loc[:, 'Peer'] = peer_evaluations['Peer'].str.lower()
-        filtered_data.loc[:, 'Name'] = filtered_data['Name'].str.lower()
-        peer_evaluations.loc[:, 'Peer'] = peer_evaluations['Peer'].apply(lambda x: x.split(' (')[0])
-        filtered_data.loc[:, 'Name'] = filtered_data['Name'].apply(lambda x: x.split(' (')[0])
+        peer_evaluations = pd.DataFrame(peer_evaluations.tolist())
+
+        # Extract only the name part from the "Peer" column
+        peer_evaluations['Peer'] = peer_evaluations['Peer'].apply(lambda x: x.split(' (')[0])
+        filtered_data['Name'] = filtered_data['Name'].apply(lambda x: x.split(' (')[0])
 
         # Calculate the average peer rating for each employee
         employee_ratings = peer_evaluations.groupby(["Peer"])["Rating"].mean().reset_index()
-        
-        # Validate employee names before merging:
-        valid_employee_names = set(filtered_data['Name'])
-        employee_ratings = employee_ratings[employee_ratings['Peer'].isin(valid_employee_names)]
 
-        # Merge employee ratings with employee names, handling potential mismatches
+        # Merge employee ratings with employee names
         employee_ratings = employee_ratings.merge(filtered_data[["Name"]], left_on="Peer", right_on="Name", how="left")
-        
-        # Additional check to remove rows with missing names after merging
-        employee_ratings.dropna(subset=['Name'], inplace=True)
 
         # Check if the required columns and data are present after the merge
         if not employee_ratings.empty and "Peer" in employee_ratings.columns and "Rating" in employee_ratings.columns:
@@ -263,7 +250,7 @@ with st.container():
             top_rated_employees = employee_ratings.sort_values("Rating", ascending=False)
 
             # Display the top-rated employees
-            styled_peer_rankings = top_rated_employees[["Name", "Rating"]].head(5).style.set_properties(**{'text-align': 'center'}).set_table_styles([
+            styled_peer_rankings = top_rated_employees[["Peer", "Rating"]].head(5).style.set_properties(**{'text-align': 'center'}).set_table_styles([
                 {'selector': 'th', 'props': [('background-color', '#f0f0f0'), ('color', '#000000'), ('font-weight', 'bold')]},
                 {'selector': 'td', 'props': [('padding', '8px')]}
             ])
