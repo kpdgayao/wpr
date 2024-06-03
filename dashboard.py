@@ -232,17 +232,17 @@ with st.container():
         st.write("No peer evaluations available in the filtered data.")
     else:
         # Normalize the peer evaluations data
-        peer_evaluations = pd.json_normalize(peer_evaluations[0])
-
-        # Convert to numeric, coercing errors to NaN, but only for the 'Rating' column
+        peer_evaluations = peer_evaluations[0].apply(pd.Series) if isinstance(peer_evaluations[0], list) else pd.DataFrame(columns=["Peer", "Rating"])
         peer_evaluations['Rating'] = pd.to_numeric(peer_evaluations['Rating'], errors='coerce')
         
         # Remove rows with NaN values in the 'Rating' column
         peer_evaluations = peer_evaluations.dropna(subset=['Rating'])
         
         # Extract only the name part from the "Peer" column BEFORE converting to numeric
+        peer_evaluations['Peer'] = peer_evaluations['Peer'].str.lower()
+        filtered_data['Name'] = filtered_data['Name'].str.lower()
         peer_evaluations['Peer'] = peer_evaluations['Peer'].astype(str).apply(lambda x: x.split(' (')[0])
-
+        filtered_data['Name'] = filtered_data['Name'].astype(str)
         # Calculate the average peer rating for each employee
         employee_ratings = peer_evaluations.groupby(["Peer"])["Rating"].mean().reset_index()
         
