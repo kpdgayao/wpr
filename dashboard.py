@@ -256,16 +256,12 @@ with st.container():
                 # Convert ratings to numeric, handling errors
                 peer_evaluations_df["Rating"] = pd.to_numeric(peer_evaluations_df["Rating"], errors="coerce")
 
-                # Calculate the average peer rating for each employee
-                employee_ratings = peer_evaluations_df.groupby(["Peer"])["Rating"].mean().reset_index()
+                # Merge peer evaluations with employee names
+                peer_evaluations_df = peer_evaluations_df.merge(filtered_data[["Name"]], left_on="Peer", right_on="Name", how="left")
 
-                # Validate employee names before merging
-                valid_employee_names = set(filtered_data["Name"])
-                employee_ratings = employee_ratings[employee_ratings["Peer"].isin(valid_employee_names)]
+                # Group by both "Peer" and "Name" columns and calculate the average rating
+                employee_ratings = peer_evaluations_df.groupby(["Peer", "Name"])["Rating"].mean().reset_index()
 
-                # Merge employee ratings with employee names
-                employee_ratings = employee_ratings.merge(filtered_data[["Name"]], left_on="Peer", right_on="Name", how="left")
-                
                 # Remove NaN ratings or names
                 employee_ratings = employee_ratings.dropna(subset=['Rating', 'Name'])
 
