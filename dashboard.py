@@ -238,35 +238,38 @@ with st.container():
             st.write("The 'Rating' column is missing in the peer evaluations data.")
 
         # Extract and clean the name part from the "Peer" column
-        peer_evaluations["Peer"] = peer_evaluations["Peer"].astype(str).apply(lambda x: x.split(" (")[0])
-        filtered_data["Name"] = filtered_data["Name"].astype(str).apply(lambda x: x.split(" (")[0])
+        if "Peer" in peer_evaluations.columns:
+            peer_evaluations["Peer"] = peer_evaluations["Peer"].astype(str).apply(lambda x: x.split(" (")[0])
+            filtered_data["Name"] = filtered_data["Name"].astype(str).apply(lambda x: x.split(" (")[0])
 
-        # Calculate the average peer rating for each employee
-        employee_ratings = peer_evaluations.groupby(["Peer"])["Rating"].mean().reset_index()
+            # Calculate the average peer rating for each employee
+            employee_ratings = peer_evaluations.groupby(["Peer"])["Rating"].mean().reset_index()
 
-        # Validate employee names before merging
-        valid_employee_names = set(filtered_data["Name"])
-        employee_ratings = employee_ratings[employee_ratings["Peer"].isin(valid_employee_names)]
+            # Validate employee names before merging
+            valid_employee_names = set(filtered_data["Name"])
+            employee_ratings = employee_ratings[employee_ratings["Peer"].isin(valid_employee_names)]
 
-        # Merge employee ratings with employee names
-        employee_ratings = employee_ratings.merge(filtered_data[["Name"]], left_on="Peer", right_on="Name", how="left")
-        
-        # Remove NaN ratings or names
-        employee_ratings = employee_ratings.dropna(subset=['Rating', 'Name'])
+            # Merge employee ratings with employee names
+            employee_ratings = employee_ratings.merge(filtered_data[["Name"]], left_on="Peer", right_on="Name", how="left")
+            
+            # Remove NaN ratings or names
+            employee_ratings = employee_ratings.dropna(subset=['Rating', 'Name'])
 
-        # Check if there are valid peer evaluations after merging
-        if not employee_ratings.empty and "Peer" in employee_ratings.columns and "Rating" in employee_ratings.columns:
-            # Sort employees based on their average peer rating
-            top_rated_employees = employee_ratings.sort_values("Rating", ascending=False)
+            # Check if there are valid peer evaluations after merging
+            if not employee_ratings.empty and "Peer" in employee_ratings.columns and "Rating" in employee_ratings.columns:
+                # Sort employees based on their average peer rating
+                top_rated_employees = employee_ratings.sort_values("Rating", ascending=False)
 
-            # Display the top-rated employees
-            styled_peer_rankings = top_rated_employees[["Name", "Rating"]].head(5).style.set_properties(**{'text-align': 'center'}).set_table_styles([
-                {'selector': 'th', 'props': [('background-color', '#f0f0f0'), ('color', '#000000'), ('font-weight', 'bold')]},
-                {'selector': 'td', 'props': [('padding', '8px')]}
-            ])
-            st.write(styled_peer_rankings.to_html(index=False), unsafe_allow_html=True)
+                # Display the top-rated employees
+                styled_peer_rankings = top_rated_employees[["Name", "Rating"]].head(5).style.set_properties(**{'text-align': 'center'}).set_table_styles([
+                    {'selector': 'th', 'props': [('background-color', '#f0f0f0'), ('color', '#000000'), ('font-weight', 'bold')]},
+                    {'selector': 'td', 'props': [('padding', '8px')]}
+                ])
+                st.write(styled_peer_rankings.to_html(index=False), unsafe_allow_html=True)
+            else:
+                st.write("No valid peer evaluations or matching employee names found.")
         else:
-            st.write("No valid peer evaluations or matching employee names found.")
+            st.write("The 'Peer' column is missing in the peer evaluations data.")
 
 #Provide insights on team collaboration
 with st.container():
