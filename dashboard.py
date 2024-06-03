@@ -258,20 +258,24 @@ if not peer_evaluations.empty:
 else:
     st.write("No peer evaluations available.")
 
-#Provide insights on team collaboration
+# Provide insights on team collaboration
 with st.container():
     st.subheader("Team Collaboration Insights")
-if not top_rated_employees.empty:
-    avg_rating = top_rated_employees["Rating"].mean()
-    st.write(f"The average peer rating for the selected period is {avg_rating:.2f}.")
-    if avg_rating >= 4.0:
-        st.write("The team demonstrates excellent collaboration and support for each other.")
-    elif avg_rating >= 3.0:
-        st.write("The team shows good collaboration and support, with room for improvement.")
+
+    # Initialize top_rated_employees to an empty DataFrame if not defined yet
+    top_rated_employees = top_rated_employees if 'top_rated_employees' in locals() else pd.DataFrame()
+
+    if not top_rated_employees.empty:
+        avg_rating = top_rated_employees["Rating"].mean()
+        st.write(f"The average peer rating for the selected period is {avg_rating:.2f}.")
+        if avg_rating >= 4.0:
+            st.write("The team demonstrates excellent collaboration and support for each other.")
+        elif avg_rating >= 3.0:
+            st.write("The team shows good collaboration and support, with room for improvement.")
+        else:
+            st.write("The team may need to focus on improving collaboration and supporting each other.")
     else:
-        st.write("The team may need to focus on improving collaboration and supporting each other.")
-else:
-    st.write("No peer evaluation data available for team collaboration insights.")
+        st.write("No peer evaluation data available for team collaboration insights.")
 
 # Projects
 try:
