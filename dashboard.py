@@ -235,9 +235,9 @@ with st.container():
         # Normalize the peer evaluations data
         peer_evaluations = pd.json_normalize(peer_evaluations[0])
         peer_evaluations['Rating'] = pd.to_numeric(peer_evaluations['Rating'], errors='coerce')
-
-        # Extract only the name part from the "Peer" column
-        peer_evaluations['Peer'] = peer_evaluations['Peer'].apply(lambda x: x.split(' (')[0])
+        
+        # Extract only the name part from the "Peer" column BEFORE converting to numeric
+        peer_evaluations['Peer'] = peer_evaluations['Peer'].astype(str).apply(lambda x: x.split(' (')[0])
 
         # Calculate the average peer rating for each employee
         employee_ratings = peer_evaluations.groupby(["Peer"])["Rating"].mean().reset_index()
