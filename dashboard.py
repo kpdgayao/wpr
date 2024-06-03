@@ -288,65 +288,68 @@ except KeyError:
 with st.container():
     st.header("Projects")
     st.write("This section provides an overview of the projects worked on by each employee during the selected period.")
-project_data = filtered_data[filtered_data["Projects"].apply(lambda x: len(x) > 0 if isinstance(x, list) else False)]
 
-if not project_data.empty:
-    #Allow sorting or filtering of projects
-    st.sidebar.subheader("Project Filters")
-    min_completion = st.sidebar.number_input("Minimum Completion %", min_value=0, max_value=100, value=0, step=1)
-    max_completion = st.sidebar.number_input("Maximum Completion %", min_value=0, max_value=100, value=100, step=1)
-    sort_by = st.sidebar.selectbox("Sort By", ["Completion %", "Project Name"])
-    sort_order = st.sidebar.selectbox("Sort Order", ["Ascending", "Descending"])
+    project_data = filtered_data[filtered_data["Projects"].apply(lambda x: len(x) > 0 if isinstance(x, list) else False)].copy()  
 
-    project_data["Completion %"] = project_data["Projects"].apply(lambda x: [p["completion"] for p in x])
-    project_data = project_data[(project_data["Completion %"].apply(lambda x: min_completion <= min(x) <= max_completion if x else False))]
+    if not project_data.empty:
+        # Allow sorting or filtering of projects
+        with st.sidebar: 
+            st.subheader("Project Filters")
+            min_completion = st.sidebar.number_input("Minimum Completion %", min_value=0, max_value=100, value=0, step=1)
+            max_completion = st.sidebar.number_input("Maximum Completion %", min_value=0, max_value=100, value=100, step=1)
+            sort_by = st.sidebar.selectbox("Sort By", ["Completion %", "Project Name"])
+            sort_order = st.sidebar.selectbox("Sort Order", ["Ascending", "Descending"])
 
-    if sort_by == "Completion %":
-        project_data = project_data.sort_values(by="Completion %", key=lambda x: x.apply(lambda y: max(y) if y else 0), ascending=sort_order=="Ascending")
-    else:
-        project_data = project_data.sort_values(by="Name", ascending=sort_order=="Ascending")
-    # Extract project details and calculate completion percentage
-    projects = pd.json_normalize(project_data["Projects"].explode())
-    projects["Completion"] = projects["completion"].astype(float)
-    project_completion = projects.groupby("name")["Completion"].mean().reset_index()
+        project_data.loc[:, "Completion %"] = project_data["Projects"].apply(lambda x: [p["completion"] for p in x])  
+        project_data = project_data[(project_data["Completion %"].apply(lambda x: min_completion <= min(x) <= max_completion if x else False))]
 
-    # Display project completion table
-    st.subheader("Project Completion")
-    styled_project_completion = project_completion.style.set_properties(**{'text-align': 'center'}).set_table_styles([
-        {'selector': 'th', 'props': [('background-color', '#f0f0f0'), ('color', '#000000'), ('font-weight', 'bold')]},
-        {'selector': 'td', 'props': [('padding', '8px')]}
-    ])
-    st.write(styled_project_completion.to_html(index=False), unsafe_allow_html=True)
+        if sort_by == "Completion %":
+            project_data = project_data.sort_values(by="Completion %", key=lambda x: x.apply(lambda y: max(y) if y else 0), ascending=sort_order=="Ascending")
+        else:  # Assuming there's a "Project Name" column or a column you wish to sort
+            project_data = project_data.sort_values(by="Project", ascending=sort_order=="Ascending") 
+            
+        # Extract project details and calculate completion percentage
+        projects = pd.json_normalize(project_data["Projects"].explode())
+        projects["Completion"] = projects["completion"].astype(float)
+        project_completion = projects.groupby("name")["Completion"].mean().reset_index()
 
-    #Add a pie chart for project completion rates
-    if not project_completion.empty:
-        fig, ax = plt.subplots(figsize=(6, 6))
-        ax.pie(project_completion["Completion"], labels=project_completion["name"], autopct="%1.1f%%")
-        ax.set_title("Project Completion Rates", fontsize=16)
-        st.pyplot(fig)
-    else:
-        st.write("No project data available.")    
-
-    # Display project details for each employee
-    with st.expander("Project Details"):
-        selected_employee = st.selectbox("Select an Employee", data["Name"].unique())
-        employee_project_data = project_data[project_data["Name"] == selected_employee]
-
-    if not employee_project_data.empty:
-        employee_projects = pd.DataFrame(employee_project_data["Projects"].iloc[0])
-        employee_projects["Timeline"] = employee_projects.apply(lambda x: f"{x['start_date']} - {x['end_date']}" if "start_date" in x and "end_date" in x else "N/A", axis=1)
-        employee_projects["Status"] = employee_projects.apply(lambda x: "Completed" if x["completion"] == 100 else "In Progress", axis=1)
-        employee_projects = employee_projects[["name", "Timeline", "completion", "Status"]]
-        employee_projects.columns = ["Project", "Timeline", "Completion %", "Status"]
-        styled_employee_projects = employee_projects.style.set_properties(**{'text-align': 'center'}).set_table_styles([
+        # Display project completion table
+        st.subheader("Project Completion")
+        styled_project_completion = project_completion.style.set_properties(**{'text-align': 'center'}).set_table_styles([
             {'selector': 'th', 'props': [('background-color', '#f0f0f0'), ('color', '#000000'), ('font-weight', 'bold')]},
             {'selector': 'td', 'props': [('padding', '8px')]}
         ])
-        st.write(styled_employee_projects.to_html(index=False), unsafe_allow_html=True)
+        st.write(styled_project_completion.to_html(index=False), unsafe_allow_html=True)
+
+        # Add a pie chart for project completion rates
+        if not project_completion.empty:
+            fig, ax = plt.subplots(figsize=(6, 6))
+            ax.pie(project_completion["Completion"], labels=project_completion["name"], autopct="%1.1f%%")
+            ax.set_title("Project Completion Rates", fontsize=16)
+            st.pyplot(fig)
+        else:
+            st.write("No project data available.")
+
+        # Display project details for each employee
+        with st.expander("Project Details"):
+            selected_employee = st.selectbox("Select an Employee", data["Name"].unique())
+            employee_project_data = project_data[project_data["Name"] == selected_employee]
+
+            if not employee_project_data.empty:
+                employee_projects = pd.DataFrame(employee_project_data["Projects"].iloc[0])
+                employee_projects["Timeline"] = employee_projects.apply(lambda x: f"{x['start_date']} - {x['end_date']}" if "start_date" in x and "end_date" in x else "N/A", axis=1)
+                employee_projects["Status"] = employee_projects.apply(lambda x: "Completed" if x["completion"] == 100 else "In Progress", axis=1)
+                employee_projects = employee_projects[["name", "Timeline", "completion", "Status"]]
+                employee_projects.columns = ["Project", "Timeline", "Completion %", "Status"]
+                styled_employee_projects = employee_projects.style.set_properties(**{'text-align': 'center'}).set_table_styles([
+                    {'selector': 'th', 'props': [('background-color', '#f0f0f0'), ('color', '#000000'), ('font-weight', 'bold')]},
+                    {'selector': 'td', 'props': [('padding', '8px')]}
+                ])
+                st.write(styled_employee_projects.to_html(index=False), unsafe_allow_html=True)
+            else:
+                st.write("No project data available for the selected employee.")
     else:
-        st.write("No project data available for the selected employee.")
-else:
-    st.write("No projects found.")
+        st.write("No projects found.")
 
 # Raw Data
 with st.container():
