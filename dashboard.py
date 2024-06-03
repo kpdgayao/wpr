@@ -56,46 +56,33 @@ st.sidebar.header("Filters")
 selected_teams = st.sidebar.multiselect("Select Teams", data["Team"].unique(), default=data["Team"].unique())
 selected_weeks = st.sidebar.multiselect("Select Week Numbers", data["Week Number"].unique(), default=data["Week Number"].unique())
 selected_employees = st.sidebar.multiselect("Select Employees", data["Name"].unique(), default=data["Name"].unique())
-selected_projects = st.sidebar.multiselect("Select Projects", data["Projects"].explode().unique())
+selected_projects = st.sidebar.multiselect("Select Projects", data["Projects"].apply(lambda x: [project["name"] for project in x if isinstance(project, dict)]).explode().unique())
 
 # Filter data based on selected team and week
 @st.cache_data(show_spinner=False)
 def filter_data(data, selected_teams, selected_weeks, selected_employees, selected_projects):
-    """
-    Filters the data based on the selected teams, weeks, employees, and projects.
-    
-    Args:
-        data (DataFrame): The original data DataFrame.
-        selected_teams (list): List of selected team names.
-        selected_weeks (list): List of selected week numbers.
-        selected_employees (list): List of selected employee names.
-        selected_projects (list): List of selected project names.
-        
-    Returns:
-        DataFrame: The filtered data DataFrame.
-    """
     if selected_teams and selected_weeks and selected_employees and selected_projects:
-        filtered_data = data[(data["Team"].isin(selected_teams)) & (data["Week Number"].isin(selected_weeks)) & (data["Name"].isin(selected_employees)) & (data["Projects"].apply(lambda x: any(project["name"] in selected_projects for project in x)))]
+        filtered_data = data[(data["Team"].isin(selected_teams)) & (data["Week Number"].isin(selected_weeks)) & (data["Name"].isin(selected_employees)) & (data["Projects"].apply(lambda x: any(project["name"] in selected_projects for project in x if isinstance(project, dict))))]
     elif selected_teams and selected_weeks and selected_employees:
         filtered_data = data[(data["Team"].isin(selected_teams)) & (data["Week Number"].isin(selected_weeks)) & (data["Name"].isin(selected_employees))]
     elif selected_teams and selected_weeks and selected_projects:
-        filtered_data = data[(data["Team"].isin(selected_teams)) & (data["Week Number"].isin(selected_weeks)) & (data["Projects"].apply(lambda x: any(project["name"] in selected_projects for project in x)))]
+        filtered_data = data[(data["Team"].isin(selected_teams)) & (data["Week Number"].isin(selected_weeks)) & (data["Projects"].apply(lambda x: any(project["name"] in selected_projects for project in x if isinstance(project, dict))))]
     elif selected_teams and selected_employees and selected_projects:
-        filtered_data = data[(data["Team"].isin(selected_teams)) & (data["Name"].isin(selected_employees)) & (data["Projects"].apply(lambda x: any(project["name"] in selected_projects for project in x)))]
+        filtered_data = data[(data["Team"].isin(selected_teams)) & (data["Name"].isin(selected_employees)) & (data["Projects"].apply(lambda x: any(project["name"] in selected_projects for project in x if isinstance(project, dict))))]
     elif selected_weeks and selected_employees and selected_projects:
-        filtered_data = data[(data["Week Number"].isin(selected_weeks)) & (data["Name"].isin(selected_employees)) & (data["Projects"].apply(lambda x: any(project["name"] in selected_projects for project in x)))]
+        filtered_data = data[(data["Week Number"].isin(selected_weeks)) & (data["Name"].isin(selected_employees)) & (data["Projects"].apply(lambda x: any(project["name"] in selected_projects for project in x if isinstance(project, dict))))]
     elif selected_teams and selected_weeks:
         filtered_data = data[(data["Team"].isin(selected_teams)) & (data["Week Number"].isin(selected_weeks))]
     elif selected_teams and selected_employees:
         filtered_data = data[(data["Team"].isin(selected_teams)) & (data["Name"].isin(selected_employees))]
     elif selected_teams and selected_projects:
-        filtered_data = data[(data["Team"].isin(selected_teams)) & (data["Projects"].apply(lambda x: any(project["name"] in selected_projects for project in x)))]
+        filtered_data = data[(data["Team"].isin(selected_teams)) & (data["Projects"].apply(lambda x: any(project["name"] in selected_projects for project in x if isinstance(project, dict))))]
     elif selected_weeks and selected_employees:
         filtered_data = data[(data["Week Number"].isin(selected_weeks)) & (data["Name"].isin(selected_employees))]
     elif selected_weeks and selected_projects:
-        filtered_data = data[(data["Week Number"].isin(selected_weeks)) & (data["Projects"].apply(lambda x: any(project["name"] in selected_projects for project in x)))]
+        filtered_data = data[(data["Week Number"].isin(selected_weeks)) & (data["Projects"].apply(lambda x: any(project["name"] in selected_projects for project in x if isinstance(project, dict))))]
     elif selected_employees and selected_projects:
-        filtered_data = data[(data["Name"].isin(selected_employees)) & (data["Projects"].apply(lambda x: any(project["name"] in selected_projects for project in x)))]
+        filtered_data = data[(data["Name"].isin(selected_employees)) & (data["Projects"].apply(lambda x: any(project["name"] in selected_projects for project in x if isinstance(project, dict))))]
     elif selected_teams:
         filtered_data = data[data["Team"].isin(selected_teams)]
     elif selected_weeks:
@@ -103,7 +90,7 @@ def filter_data(data, selected_teams, selected_weeks, selected_employees, select
     elif selected_employees:
         filtered_data = data[data["Name"].isin(selected_employees)]
     elif selected_projects:
-        filtered_data = data[data["Projects"].apply(lambda x: any(project["name"] in selected_projects for project in x))]
+        filtered_data = data[data["Projects"].apply(lambda x: any(project["name"] in selected_projects for project in x if isinstance(project, dict)))]
     else:
         filtered_data = data
     return filtered_data
