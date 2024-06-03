@@ -234,8 +234,8 @@ with st.container():
         if peer_evaluations.empty:
             st.write("No peer evaluations available in the filtered data.")
         else:
-            # Normalize the peer evaluations data
-            peer_evaluations = peer_evaluations.apply(pd.Series)
+            # Parse the JSON string and normalize the peer evaluations data
+            peer_evaluations = peer_evaluations.apply(lambda x: pd.json_normalize(eval(x)))
 
             # Check if "Peer" and "Rating" columns exist
             if "Peer" not in peer_evaluations.columns or "Rating" not in peer_evaluations.columns:
