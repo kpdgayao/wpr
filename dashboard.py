@@ -239,10 +239,11 @@ with st.container():
         peer_evaluations = peer_evaluations.dropna(subset=['Rating'])
         
         # Extract only the name part from the "Peer" column BEFORE converting to numeric
-        peer_evaluations['Peer'] = peer_evaluations['Peer'].str.lower()
-        filtered_data['Name'] = filtered_data['Name'].str.lower()
-        peer_evaluations['Peer'] = peer_evaluations['Peer'].astype(str).apply(lambda x: x.split(' (')[0])
-        filtered_data['Name'] = filtered_data['Name'].astype(str)
+        peer_evaluations.loc[:, 'Peer'] = peer_evaluations['Peer'].str.lower()
+        filtered_data.loc[:, 'Name'] = filtered_data['Name'].str.lower()
+        peer_evaluations.loc[:, 'Peer'] = peer_evaluations['Peer'].apply(lambda x: x.split(' (')[0])
+        filtered_data.loc[:, 'Name'] = filtered_data['Name'].apply(lambda x: x.split(' (')[0])
+
         # Calculate the average peer rating for each employee
         employee_ratings = peer_evaluations.groupby(["Peer"])["Rating"].mean().reset_index()
         
@@ -316,8 +317,9 @@ with st.container():
 
         if sort_by == "Completion %":
             project_data = project_data.sort_values(by="Completion %", key=lambda x: x.apply(lambda y: max(y) if y else 0), ascending=sort_order=="Ascending")
-        else:  # Assuming there's a "Project Name" column or a column you wish to sort
-            project_data = project_data.sort_values(by="Project", ascending=sort_order=="Ascending") 
+        else:  # Assuming the project name is stored under the "name" key
+            project_data["Project Name"] = project_data["Projects"].apply(lambda x: [p["name"] for p in x])
+            project_data = project_data.sort_values(by="Project Name", key=lambda x: x.apply(lambda y: y[0] if y else ''), ascending=sort_order=="Ascending")
             
         # Extract project details and calculate completion percentage
         projects = pd.json_normalize(project_data["Projects"].explode())
@@ -351,7 +353,7 @@ with st.container():
                 employee_projects["Timeline"] = employee_projects.apply(lambda x: f"{x['start_date']} - {x['end_date']}" if "start_date" in x and "end_date" in x else "N/A", axis=1)
                 employee_projects["Status"] = employee_projects.apply(lambda x: "Completed" if x["completion"] == 100 else "In Progress", axis=1)
                 employee_projects = employee_projects[["name", "Timeline", "completion", "Status"]]
-                employee_projects.columns = ["Project", "Timeline", "Completion %", "Status"]
+                employee_projects.columns = ["Project Name", "Timeline", "Completion %", "Status"]
                 styled_employee_projects = employee_projects.style.set_properties(**{'text-align': 'center'}).set_table_styles([
                     {'selector': 'th', 'props': [('background-color', '#f0f0f0'), ('color', '#000000'), ('font-weight', 'bold')]},
                     {'selector': 'td', 'props': [('padding', '8px')]}
