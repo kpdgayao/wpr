@@ -234,9 +234,22 @@ with st.container():
         if peer_evaluations.empty:
             st.write("No peer evaluations available in the filtered data.")
         else:
+            # Print the contents of peer_evaluations
+            st.write("peer_evaluations:")
+            st.write(peer_evaluations)
+
             # Convert the series to a list and normalize the peer evaluations data
             peer_evaluations_list = peer_evaluations.tolist()
+
+            # Print the contents of peer_evaluations_list
+            st.write("peer_evaluations_list:")
+            st.write(peer_evaluations_list)
+
             peer_evaluations_df = pd.json_normalize(peer_evaluations_list)
+
+            # Print the contents of peer_evaluations_df
+            st.write("peer_evaluations_df:")
+            st.write(peer_evaluations_df)
 
             # Check if "Peer" and "Rating" columns exist
             if "Peer" not in peer_evaluations_df.columns or "Rating" not in peer_evaluations_df.columns:
