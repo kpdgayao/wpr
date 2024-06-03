@@ -232,7 +232,7 @@ with st.container():
         st.write("No peer evaluations available in the filtered data.")
     else:
         # Normalize the peer evaluations data
-        peer_evaluations = pd.DataFrame(peer_evaluations.tolist())
+        peer_evaluations = pd.concat(peer_evaluations.tolist(), ignore_index=True)
 
         # Extract only the name part from the "Peer" column
         peer_evaluations['Peer'] = peer_evaluations['Peer'].apply(lambda x: x.split(' (')[0])
