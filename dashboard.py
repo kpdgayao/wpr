@@ -233,16 +233,32 @@ with st.container():
     else:
         # Normalize the peer evaluations data
         peer_evaluations = pd.concat(peer_evaluations.tolist(), ignore_index=True)
+        
+        # Remove invalid peer evaluations
+        peer_evaluations = peer_evaluations[peer_evaluations['Peer'].apply(lambda x: isinstance(x, str))]
 
-        # Extract only the name part from the "Peer" column
-        peer_evaluations['Peer'] = peer_evaluations['Peer'].apply(lambda x: x.split(' (')[0])
-        filtered_data['Name'] = filtered_data['Name'].apply(lambda x: x.split(' (')[0])
+        # Convert to numeric, coercing errors to NaN, but only for the 'Rating' column
+        peer_evaluations['Rating'] = pd.to_numeric(peer_evaluations['Rating'], errors='coerce')
+
+        # Remove rows with NaN values in the 'Rating' column
+        peer_evaluations = peer_evaluations.dropna(subset=['Rating'])
+
+        # Extract only the name part from the "Peer" column BEFORE converting to numeric
+        peer_evaluations['Peer'] = peer_evaluations['Peer'].astype(str).apply(lambda x: x.split(' (')[0])
+        filtered_data['Name'] = filtered_data['Name'].astype(str).apply(lambda x: x.split(' (')[0])
 
         # Calculate the average peer rating for each employee
         employee_ratings = peer_evaluations.groupby(["Peer"])["Rating"].mean().reset_index()
 
-        # Merge employee ratings with employee names
+        # Validate employee names before merging:
+        valid_employee_names = set(filtered_data['Name'])
+        employee_ratings = employee_ratings[employee_ratings['Peer'].isin(valid_employee_names)]
+
+        # Merge employee ratings with employee names, handling potential mismatches
         employee_ratings = employee_ratings.merge(filtered_data[["Name"]], left_on="Peer", right_on="Name", how="left")
+
+        # Additional check to remove rows with missing names after merging
+        employee_ratings.dropna(subset=['Name'], inplace=True)
 
         # Check if the required columns and data are present after the merge
         if not employee_ratings.empty and "Peer" in employee_ratings.columns and "Rating" in employee_ratings.columns:
