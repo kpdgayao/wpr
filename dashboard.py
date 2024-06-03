@@ -227,14 +227,18 @@ with st.container():
 
     # Extract peer evaluations and flatten the data
     peer_evaluations = filtered_data["Peer_Evaluations"].dropna().apply(pd.Series)
-    
-    # Check if peer_evaluations is empty
+
     if peer_evaluations.empty:
         st.write("No peer evaluations available in the filtered data.")
     else:
         # Normalize the peer evaluations data
         peer_evaluations = pd.json_normalize(peer_evaluations[0])
+
+        # Convert to numeric, coercing errors to NaN, but only for the 'Rating' column
         peer_evaluations['Rating'] = pd.to_numeric(peer_evaluations['Rating'], errors='coerce')
+        
+        # Remove rows with NaN values in the 'Rating' column
+        peer_evaluations = peer_evaluations.dropna(subset=['Rating'])
         
         # Extract only the name part from the "Peer" column BEFORE converting to numeric
         peer_evaluations['Peer'] = peer_evaluations['Peer'].astype(str).apply(lambda x: x.split(' (')[0])
@@ -242,11 +246,18 @@ with st.container():
         # Calculate the average peer rating for each employee
         employee_ratings = peer_evaluations.groupby(["Peer"])["Rating"].mean().reset_index()
         
-        # Merge employee ratings with employee names
-        employee_ratings = employee_ratings.merge(filtered_data[["Name"]], left_on="Peer", right_on="Name", how="left")
+        # Validate employee names before merging:
+        valid_employee_names = set(filtered_data['Name'])
+        employee_ratings = employee_ratings[employee_ratings['Peer'].isin(valid_employee_names)]
 
-        # Check if the required columns are present after the merge
-        if "Peer" in employee_ratings.columns and "Rating" in employee_ratings.columns:
+        # Merge employee ratings with employee names, handling potential mismatches
+        employee_ratings = employee_ratings.merge(filtered_data[["Name"]], left_on="Peer", right_on="Name", how="left")
+        
+        # Additional check to remove rows with missing names after merging
+        employee_ratings.dropna(subset=['Name'], inplace=True)
+
+        # Check if the required columns and data are present after the merge
+        if not employee_ratings.empty and "Peer" in employee_ratings.columns and "Rating" in employee_ratings.columns:
             # Sort employees based on their average peer rating
             top_rated_employees = employee_ratings.sort_values("Rating", ascending=False)
 
@@ -257,7 +268,7 @@ with st.container():
             ])
             st.write(styled_peer_rankings.to_html(index=False), unsafe_allow_html=True)
         else:
-            st.write("Peer evaluation data is missing required columns after merge.")
+            st.write("No valid peer evaluations or matching employee names found.")
 
 #Provide insights on team collaboration
 with st.container():
