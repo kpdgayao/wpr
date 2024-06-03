@@ -232,7 +232,7 @@ with st.container():
         st.write("No peer evaluations available in the filtered data.")
     else:
         # Normalize the peer evaluations data
-        peer_evaluations = pd.json_normalize(peer_evaluations.explode("Peer_Evaluations"))
+        peer_evaluations = pd.json_normalize(peer_evaluations.tolist())
 
         # Convert ratings to numeric, handling errors
         if "Rating" in peer_evaluations.columns:
