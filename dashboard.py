@@ -234,22 +234,23 @@ with st.container():
         if peer_evaluations.empty:
             st.write("No peer evaluations available in the filtered data.")
         else:
-            # Normalize the peer evaluations data
-            peer_evaluations = peer_evaluations.apply(pd.json_normalize)
+            # Convert the series to a list and normalize the peer evaluations data
+            peer_evaluations_list = peer_evaluations.tolist()
+            peer_evaluations_df = pd.json_normalize(peer_evaluations_list)
 
             # Check if "Peer" and "Rating" columns exist
-            if "Peer" not in peer_evaluations.columns or "Rating" not in peer_evaluations.columns:
+            if "Peer" not in peer_evaluations_df.columns or "Rating" not in peer_evaluations_df.columns:
                 st.write("The 'Peer' or 'Rating' column is missing in the peer evaluations data.")
             else:
                 # Extract and clean the name part from the "Peer" column
-                peer_evaluations["Peer"] = peer_evaluations["Peer"].astype(str).apply(lambda x: x.split(" (")[0])
+                peer_evaluations_df["Peer"] = peer_evaluations_df["Peer"].astype(str).apply(lambda x: x.split(" (")[0])
                 filtered_data["Name"] = filtered_data["Name"].astype(str).apply(lambda x: x.split(" (")[0])
 
                 # Convert ratings to numeric, handling errors
-                peer_evaluations["Rating"] = pd.to_numeric(peer_evaluations["Rating"], errors="coerce")
+                peer_evaluations_df["Rating"] = pd.to_numeric(peer_evaluations_df["Rating"], errors="coerce")
 
                 # Calculate the average peer rating for each employee
-                employee_ratings = peer_evaluations.groupby(["Peer"])["Rating"].mean().reset_index()
+                employee_ratings = peer_evaluations_df.groupby(["Peer"])["Rating"].mean().reset_index()
 
                 # Validate employee names before merging
                 valid_employee_names = set(filtered_data["Name"])
