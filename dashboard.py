@@ -225,45 +225,46 @@ st.write(styled_top_performers.to_html(index=False), unsafe_allow_html=True)
 with st.container():
     st.header("Peer Evaluation Rankings")
 
-# Extract peer evaluations and flatten the data
-peer_evaluations = filtered_data["Peer_Evaluations"].dropna().apply(pd.Series)
-
-if not peer_evaluations.empty:
-    if "Peer" in peer_evaluations.columns and "Rating" in peer_evaluations.columns:
+    # Extract peer evaluations and flatten the data
+    peer_evaluations = filtered_data["Peer_Evaluations"].dropna().apply(pd.Series)
+    
+    # Check if peer_evaluations is empty
+    if peer_evaluations.empty:
+        st.write("No peer evaluations available in the filtered data.")
+    else:
         # Normalize the peer evaluations data
         peer_evaluations = pd.json_normalize(peer_evaluations[0])
+        peer_evaluations['Rating'] = pd.to_numeric(peer_evaluations['Rating'], errors='coerce')
+
+        # Extract only the name part from the "Peer" column
+        peer_evaluations['Peer'] = peer_evaluations['Peer'].apply(lambda x: x.split(' (')[0])
+
+        # Calculate the average peer rating for each employee
+        employee_ratings = peer_evaluations.groupby(["Peer"])["Rating"].mean().reset_index()
         
-        # Check if "Peer" and "Rating" columns exist
-        if "Peer" in peer_evaluations.columns and "Rating" in peer_evaluations.columns:
-            # Calculate the average peer rating for each employee
-            employee_ratings = peer_evaluations.groupby(["Peer"])["Rating"].mean().reset_index()
-            
-            # Merge employee ratings with employee names
-            employee_ratings = employee_ratings.merge(filtered_data[["Name"]], left_on="Peer", right_on="Name", how="left")
-            
+        # Merge employee ratings with employee names
+        employee_ratings = employee_ratings.merge(filtered_data[["Name"]], left_on="Peer", right_on="Name", how="left")
+
+        # Check if the required columns are present after the merge
+        if "Peer" in employee_ratings.columns and "Rating" in employee_ratings.columns:
             # Sort employees based on their average peer rating
             top_rated_employees = employee_ratings.sort_values("Rating", ascending=False)
-            
+
             # Display the top-rated employees
-            top_rated_employees = top_rated_employees.merge(data[["Name"]], left_on="Peer", right_on="Name", how="left")
             styled_peer_rankings = top_rated_employees[["Name", "Rating"]].head(5).style.set_properties(**{'text-align': 'center'}).set_table_styles([
                 {'selector': 'th', 'props': [('background-color', '#f0f0f0'), ('color', '#000000'), ('font-weight', 'bold')]},
                 {'selector': 'td', 'props': [('padding', '8px')]}
             ])
             st.write(styled_peer_rankings.to_html(index=False), unsafe_allow_html=True)
         else:
-            st.write("Peer evaluation data is missing required columns.")
-    else:
-        st.write("Peer evaluation data is missing required columns.")
-else:
-    st.write("No peer evaluations available.")
+            st.write("Peer evaluation data is missing required columns after merge.")
 
-# Provide insights on team collaboration
+#Provide insights on team collaboration
 with st.container():
     st.subheader("Team Collaboration Insights")
 
     # Initialize top_rated_employees to an empty DataFrame if not defined yet
-    top_rated_employees = top_rated_employees if 'top_rated_employees' in locals() else pd.DataFrame()
+    top_rated_employees = top_rated_employees if 'top_rated_employees' in locals() else pd.DataFrame() 
 
     if not top_rated_employees.empty:
         avg_rating = top_rated_employees["Rating"].mean()
