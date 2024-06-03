@@ -181,26 +181,33 @@ plt.xticks(rotation=45)
 # Add interactivity to the chart
 def on_bar_click(event):
     if event.inaxes == ax:
-        team_name = team_data["Team"].iloc[event.ind[0]]
+        bar_index = event.ind[0]
+        team_name = team_data["Team"].iloc[bar_index]
         st.write(f"Detailed information for {team_name} team:")
-        # Display detailed information for the selected team
 
+        # Display detailed information for the selected team
         with st.container():
             st.subheader("Team Performance Drilldown")
-        selected_team = st.selectbox("Select a Team", data["Team"].unique())
-        team_filtered_data = data[data["Team"] == selected_team]
+            selected_team = st.selectbox("Select a Team", data["Team"].unique(), index=bar_index)  # Set initial selection based on clicked bar
+            team_filtered_data = data[data["Team"] == selected_team]
 
-        fig, ax = plt.subplots(figsize=(10, 6))
-        ax.bar(team_filtered_data["Name"], team_filtered_data["Number of Completed Tasks"], color="green", label="Completed Tasks")
-        ax.bar(team_filtered_data["Name"], team_filtered_data["Number of Pending Tasks"], bottom=team_filtered_data["Number of Completed Tasks"], color="orange", label="Pending Tasks")
-        ax.bar(team_filtered_data["Name"], team_filtered_data["Number of Dropped Tasks"], bottom=team_filtered_data["Number of Completed Tasks"] + team_filtered_data["Number of Pending Tasks"], color="red", label="Dropped Tasks")
-        ax.set_xlabel("Employee", fontsize=12)
-        ax.set_ylabel("Number of Tasks", fontsize=12)
-        ax.set_title(f"Performance Drilldown - {selected_team}", fontsize=16)
-        ax.legend(loc="upper right", fontsize=10)
-        plt.xticks(rotation=45)
+            fig, ax = plt.subplots(figsize=(10, 6))
+            ax.bar(team_filtered_data["Name"], team_filtered_data["Number of Completed Tasks"], color="green", label="Completed Tasks")
+            ax.bar(team_filtered_data["Name"], team_filtered_data["Number of Pending Tasks"], bottom=team_filtered_data["Number of Completed Tasks"], color="orange", label="Pending Tasks")
+            ax.bar(team_filtered_data["Name"], team_filtered_data["Number of Dropped Tasks"], bottom=team_filtered_data["Number of Completed Tasks"] + team_filtered_data["Number of Pending Tasks"], color="red", label="Dropped Tasks")
+            ax.set_xlabel("Employee", fontsize=12)
+            ax.set_ylabel("Number of Tasks", fontsize=12)
+            ax.set_title(f"Performance Drilldown - {selected_team}", fontsize=16)
+            ax.legend(loc="upper right", fontsize=10)
+            plt.xticks(rotation=45)
+            st.pyplot(fig)
+
+
 fig.canvas.mpl_connect("pick_event", on_bar_click)
-bars.set_picker(5)  # Enable picking on the bars with a tolerance of 5 pixels
+
+# Enable picking on individual bars
+for bar in bars:
+    bar.set_picker(5)  # Enable picking with a tolerance of 5 pixels
 
 st.pyplot(fig)
 
