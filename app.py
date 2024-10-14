@@ -115,7 +115,7 @@ def get_week_dates(week_number, year):
 
 # Define teams and their members
 teams = {
-    "Business Services Team": ["Abigail Visperas", "Cristian Jay Duque", "Kevin Philip Gayao", "Kurt Lee Gayao", "Maria Luisa Reynante", "Jester Pedrosa"],
+    "Business Services Team": ["Abigail Visperas", "Cristian Jay Duque", "Justine Louise Ferrer", "Nathalie Joy Fronda", "Kevin Philip Gayao", "Kurt Lee Gayao", "Maria Luisa Reynante", "Jester Pedrosa"],
     "Frontend Team": ["Amiel Bryan Gaudia", "George Libatique", "Joshua Aficial"],
     "Backend Team": ["Jeon Angelo Evangelista", "Katrina Gayao", "Renzo Ducusin"]
 }
