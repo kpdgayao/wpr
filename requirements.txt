@@ -1,8 +1,7 @@
 streamlit
-streamlit-aggrid
-pandas>=1.0.0
-supabase
-python-dotenv
+pandas
 matplotlib
-mailjet-rest==1.3.4
+python-dotenv
+supabase
+mailjet_rest
 anthropic
