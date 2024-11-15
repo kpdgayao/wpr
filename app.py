@@ -283,9 +283,162 @@ class WPRApp:
 # Initialize the WPR application
 app = WPRApp(config)
 
+# Create list of names from config
+names = [f"{name} ({team})" for team, members in config.teams.items() for name in members]
+
 # Display the header
 app.display_header()
+# Add a button to proceed to the task section
+if st.button("Proceed") and st.session_state['selected_name']:
+    st.session_state['show_task_section'] = True
 
+if st.session_state['show_task_section']:
+    if st.session_state['selected_name'] in names:
+        # Extract the team from the selected name
+        team = st.session_state['selected_name'].split("(")[-1].split(")")[0]
+
+        st.markdown(f'<div class="section-header">Welcome, {st.session_state["selected_name"].split("(")[0].strip()}</div>', unsafe_allow_html=True)
+        st.write(f"Team: {team}")
+
+        # Display the last 5 responses of the user
+        st.markdown('<div class="section-header">Your Last 5 Responses</div>', unsafe_allow_html=True)
+        user_data = load_data()
+        
+        if not user_data.empty and 'Name' in user_data.columns:
+            user_responses = user_data[user_data["Name"] == st.session_state['selected_name']].sort_values("Week Number", ascending=False).head(5)
+            
+            if not user_responses.empty:
+                # Create line charts for completed, pending, and dropped tasks
+                fig, ax = plt.subplots(figsize=(10, 6))
+                ax.plot(user_responses["Week Number"], user_responses["Number of Completed Tasks"], marker="o", label="Completed Tasks")
+                ax.plot(user_responses["Week Number"], user_responses["Number of Pending Tasks"], marker="o", label="Pending Tasks")
+                ax.plot(user_responses["Week Number"], user_responses["Number of Dropped Tasks"], marker="o", label="Dropped Tasks")
+                ax.set_xlabel("Week Number")
+                ax.set_ylabel("Number of Tasks")
+                ax.set_title("Task Trends")
+                ax.grid(True)
+                ax.legend()
+                st.pyplot(fig)
+
+                # Display projects for the past week
+                st.markdown('<div class="subsection-header">Projects for the Past Week</div>', unsafe_allow_html=True)
+                past_week_projects = user_responses.iloc[0]["Projects"]
+                if past_week_projects:
+                    for project in past_week_projects:
+                        st.write(f"{project['name']}: {project['completion']}%")
+                else:
+                    st.write("No projects found for the past week.")
+                
+                # Display pending tasks from the previous week
+                st.markdown('<div class="subsection-header">Pending Tasks from Last Week</div>', unsafe_allow_html=True)
+                past_week_pending_tasks = user_responses.iloc[0]["Pending Tasks"]
+                if past_week_pending_tasks:
+                    for task in past_week_pending_tasks:
+                        st.write(f"- {task}")
+                else:
+                    st.write("No pending tasks from the previous week.")
+        else:
+            st.write("No previous responses found.")
+
+        # Add input fields for task completion
+        st.markdown('<div class="subsection-header">Task Completion</div>', unsafe_allow_html=True)
+        completed_tasks = st.text_area("Completed Tasks (one per line)", value=st.session_state.get('completed_tasks', ''), key='completed_tasks')
+        pending_tasks = st.text_area("Pending Tasks (one per line)", value=st.session_state.get('pending_tasks', ''), key='pending_tasks')
+        dropped_tasks = st.text_area("Dropped Tasks (one per line)", value=st.session_state.get('dropped_tasks', ''), key='dropped_tasks')
+
+        # Add a button to proceed to the project section
+        if st.button("Next", key='task_next'):
+            st.session_state['show_project_section'] = True
+
+    else:
+        st.warning("Please select a valid name from the dropdown.")
+
+if st.session_state['show_project_section']:
+    # Add input fields for projects
+    st.markdown('<div class="section-header">Projects</div>', unsafe_allow_html=True)
+    st.write("Enter projects and their completion percentage (one per line, format: project name, completion percentage without '%' symbol)")
+    projects = st.text_area("Projects", value=st.session_state.get('projects', ''), key='projects')
+
+    # Add a button to proceed to the productivity section
+    if st.button("Next", key='project_next'):
+        st.session_state['show_productivity_section'] = True
+
+if st.session_state['show_productivity_section']:
+    # Add input fields for productivity evaluation
+    st.markdown('<div class="section-header">Productivity Evaluation</div>', unsafe_allow_html=True)
+    productivity_rating = st.select_slider(
+        "Productivity Rating",
+        options=['1 - Not Productive', '2 - Somewhat Productive', '3 - Productive', '4 - Very Productive'],
+        value=st.session_state.get('productivity_rating', '3 - Productive'),
+        key='productivity_rating'
+    )
+    productivity_suggestions = st.multiselect(
+        "Productivity Suggestions",
+        config.productivity_suggestions,
+        default=st.session_state.get('productivity_suggestions', []),
+        key='productivity_suggestions'
+    )
+    productivity_details = st.text_area(
+        "Please provide more details or examples",
+        value=st.session_state.get('productivity_details', ''),
+        key='productivity_details'
+    )
+
+    # Add input fields for time and place of productivity
+    st.markdown('<div class="subsection-header">Time and Place of Productivity</div>', unsafe_allow_html=True)
+    productive_time = st.radio(
+        "What time are you most productive last week?",
+        ["8am - 12nn", "12nn - 4pm", "4pm - 8pm", "8pm - 12mn"],
+        index=["8am - 12nn", "12nn - 4pm", "4pm - 8pm", "8pm - 12mn"].index(st.session_state.get('productive_time', "8am - 12nn")),
+        key='productive_time'
+    )
+    productive_place = st.radio(
+        "Where do you prefer to work based on your experience from last week?",
+        ["Office", "Home"],
+        index=["Office", "Home"].index(st.session_state.get('productive_place', "Office")),
+        key='productive_place'
+    )
+
+    # Add a button to proceed to the peer evaluation section
+    if st.button("Next", key='productivity_next'):
+        st.session_state['show_peer_evaluation_section'] = True
+
+if st.session_state['show_peer_evaluation_section']:
+    # Add input fields for peer evaluation
+    st.markdown('<div class="section-header">Peer Evaluation (Evaluate Your Teammates)</div>', unsafe_allow_html=True)
+    st.write("Select the teammates you worked with last week and provide a rating for their performance.")
+
+    # Get the selected user's team
+    selected_team = st.session_state['selected_name'].split("(")[-1].split(")")[0]
+
+    # Get the list of teammates for the selected user
+    teammates = [name for name in names if selected_team in name and name != st.session_state['selected_name']]
+
+    peer_evaluations = st.multiselect(
+        "Select the teammates you worked with last week",
+        teammates,
+        key='peer_evaluations'
+    )
+
+    peer_ratings = {}
+    for peer in peer_evaluations:
+        rating = st.radio(
+            f"Rate {peer}",
+            ["1 (Poor)", "2 (Fair)", "3 (Satisfactory)", "4 (Excellent)"],
+            key=f"peer_rating_{peer}"
+        )
+        peer_ratings[peer] = int(rating.split(" ")[0])
+
+    # Convert peer ratings to a list of dictionaries
+    peer_evaluations_list = [{"Peer": peer, "Rating": rating} for peer, rating in peer_ratings.items()]
+
+    # Calculate the team overall rating
+    if peer_ratings:
+        team_overall_rating = sum(peer_ratings.values()) / len(peer_ratings)
+        st.write(f"Team Overall Rating: {team_overall_rating:.2f}")
+    else:
+        st.write("No peer evaluations provided.")
+    
 class SubmissionProcessor:
     def __init__(self, config, email_handler):
         self.config = config
@@ -442,17 +595,34 @@ submission_processor = SubmissionProcessor(config, email_handler)
 
 # Main form handling and submission logic
 if st.session_state['show_peer_evaluation_section']:
-    # Your existing peer evaluation code here...
     user_email = st.text_input("Enter your email address")      
 
     # Display the entered information and save data
     if st.button("Submit") and not st.session_state['submitted']:
         if not user_email:
             st.error("Please enter your email address")
+        elif not peer_evaluations:
+            st.warning("Please select at least one teammate to evaluate")
         else:
             try:
                 validator.validate_email(user_email)
-                # Prepare your data dictionary here
+                
+                # Parse projects
+                projects_list = []
+                if st.session_state['projects']:
+                    for project in st.session_state['projects'].split('\n'):
+                        if project.strip():
+                            try:
+                                name, completion = project.rsplit(',', 1)
+                                projects_list.append({
+                                    "name": name.strip(),
+                                    "completion": float(completion.strip())
+                                })
+                            except (ValueError, AttributeError):
+                                st.error(f"Invalid project format: {project}")
+                                continue
+
+                # Prepare data dictionary
                 data = {
                     "Name": st.session_state['selected_name'],
                     "Team": st.session_state['selected_name'].split("(")[1].split(")")[0],
@@ -464,15 +634,18 @@ if st.session_state['show_peer_evaluation_section']:
                     "Number of Pending Tasks": len(st.session_state['pending_tasks'].split('\n')) if st.session_state['pending_tasks'] else 0,
                     "Dropped Tasks": st.session_state['dropped_tasks'].split('\n') if st.session_state['dropped_tasks'] else [],
                     "Number of Dropped Tasks": len(st.session_state['dropped_tasks'].split('\n')) if st.session_state['dropped_tasks'] else 0,
-                    "Projects": st.session_state['projects'],
+                    "Projects": projects_list,
                     "Productivity Rating": st.session_state['productivity_rating'],
                     "Productivity Suggestions": st.session_state['productivity_suggestions'],
                     "Productivity Details": st.session_state['productivity_details'],
                     "Productive Time": st.session_state['productive_time'],
                     "Productive Place": st.session_state['productive_place'],
-                    "Peer_Evaluations": st.session_state['peer_evaluations']
+                    "Peer_Evaluations": peer_evaluations_list
                 }
-        
+                
+                # Save data to database
+                save_data(data)        
+                
                 with st.spinner("Processing your submission..."):
                     if submission_processor.process_submission(data, user_email):
                         st.session_state['submitted'] = True
