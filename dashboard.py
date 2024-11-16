@@ -1,5 +1,5 @@
 import streamlit as st
-from database import load_data, display_data
+from core.database import load_data, display_data
 import matplotlib.pyplot as plt
 import pandas as pd
 
