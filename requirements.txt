@@ -5,3 +5,5 @@ python-dotenv
 supabase
 mailjet_rest
 anthropic
+plotly==5.18.0
+pandas==2.2.0
