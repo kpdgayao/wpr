@@ -14,6 +14,14 @@ from core.ai_hr_analyzer import AIHRAnalyzer
 from ui.components import UIComponents
 from ui.hr_visualizations import HRVisualizations
 
+# At the top of the file, after imports
+class Constants:
+    MAX_TOKENS = 4000
+    AI_MODEL = "claude-3-5-sonnet-20241022"
+    LOG_FILE = "wpr.log"
+    PAGE_TITLE = "IOL Weekly Productivity Report"
+    PAGE_ICON = ":clipboard:"
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -25,6 +33,14 @@ logging.basicConfig(
 )
 
 class WPRApp:
+    config: Config
+    db: DatabaseHandler
+    email_handler: EmailHandler
+    ui: UIComponents
+    validator: InputValidator
+    anthropic_client: anthropic.Client
+    ai_hr_analyzer: AIHRAnalyzer
+
     def __init__(self):
         """Initialize the WPR application"""
         try:
@@ -52,7 +68,7 @@ class WPRApp:
             logging.error(f"Error initializing WPR application: {str(e)}")
             raise
 
-    def initialize_session_state(self):
+    def initialize_session_state(self) -> None:
         """Initialize or reset session state variables"""
         if 'initialized' not in st.session_state:
             st.session_state.update({
@@ -66,7 +82,7 @@ class WPRApp:
                 'submitted': False
             })
 
-    def setup_page(self):
+    def setup_page(self) -> None:
         """Set up the Streamlit page configuration"""
         st.set_page_config(
             page_title="IOL Weekly Productivity Report",
@@ -223,239 +239,248 @@ class WPRApp:
         try:
             system_prompt = self._get_system_prompt(st.session_state.week_number)
             
-            response = self.anthropic_client.messages.create(
-                model="claude-3-5-sonnet-20241022",
-                max_tokens=4000,  # Increased token limit for comprehensive analysis
-                system=system_prompt,
-                messages=[{
-                    "role": "user",
-                    "content": f"Please analyze this Weekly Productivity Report and provide comprehensive feedback following the specified format: \n\n{submission_text}"
-                }]
-            )
+            # Add timeout handling
+            with st.spinner("Generating AI analysis..."):
+                response = self.anthropic_client.messages.create(
+                    model="claude-3-sonnet-20240229",
+                    max_tokens=4000,
+                    system=system_prompt,
+                    messages=[{
+                        "role": "user",
+                        "content": f"Please analyze this Weekly Productivity Report and provide comprehensive feedback following the specified format: \n\n{submission_text}"
+                    }]
+                )
+            
+            # Validate response
+            if not response or not response.content:
+                raise ValueError("Empty response from AI")
+                
+            ai_response = response.content[0].text
+            
+            # Basic validation of the response format
+            if not ("<div" in ai_response and "</div>" in ai_response):
+                raise ValueError("AI response format is invalid")
             
             # Log successful analysis
             logging.info("AI analysis generated successfully")
-            return response.content[0].text
+            return ai_response
+            
         except Exception as e:
             logging.error(f"AI analysis error: {str(e)}")
-            return """
+            return f"""
             <div style="color: red; padding: 20px; border: 1px solid red; border-radius: 5px;">
-                Error generating AI analysis. Please contact support for assistance.
+                Error generating AI analysis: {str(e)}<br>
+                Please contact support for assistance.
             </div>
             """
 
-def display_hr_analysis(self, employee_name: str):
-    """Display HR analysis dashboard"""
-    try:
-        with st.spinner("Loading HR analysis..."):
-            # Get latest HR analysis
-            hr_history = self.db.get_hr_analysis_history(employee_name)
-            if not hr_history:
-                st.warning("No HR analysis history found.")
+    def display_hr_analysis(self, employee_name: str):
+        """Display HR analysis dashboard"""
+        try:
+            with st.spinner("Loading HR analysis..."):
+                # Get latest HR analysis
+                hr_history = self.db.get_hr_analysis_history(employee_name)
+                if not hr_history:
+                    st.warning("No HR analysis history found.")
+                    return
+
+                hr_analysis = hr_history[0]
+                historical_data = hr_history
+                
+                # Display dashboard
+                HRVisualizations.display_hr_dashboard(hr_analysis, historical_data)
+                
+                logging.info(f"HR analysis displayed successfully for {employee_name}")
+        except Exception as e:
+            logging.error(f"Error displaying HR analysis: {str(e)}")
+            st.error("Error displaying HR analysis dashboard.")
+
+    def process_submission(self, data: Dict[str, Any], user_email: str) -> bool:
+        try:
+            # Generate HR analysis
+            hr_analysis = self.ai_hr_analyzer.generate_hr_analysis(data)
+            
+            # Save HR analysis to database
+            self.db.save_hr_analysis(hr_analysis)
+            
+            # Send HR analysis email
+            hr_email_content = self.email_handler.format_hr_analysis_email(
+                data['Name'],
+                data['Week Number'],
+                hr_analysis
+            )
+            
+            self.email_handler.send_email(
+                to_email=user_email,
+                to_name=data['Name'],
+                subject=f"HR Analysis Report - Week {data['Week Number']}",
+                html_content=hr_email_content
+            )
+            
+            # Display HR analysis dashboard
+            self.display_hr_analysis(data['Name'])
+            
+            return True
+        except Exception as e:
+            logging.error(f"Error processing submission: {str(e)}")
+            return False
+
+    def _process_form_submission(self, form_data: Dict[str, Any]):
+        """Process the form submission"""
+        try:
+            user_email = form_data.pop('user_email')  # Remove email from data dict
+            
+            with st.spinner("Processing your submission..."):
+                # Save to database
+                if not self.db.save_data(form_data):
+                    st.error("Error saving data to database.")
+                    return
+                
+                # Process submission with AI analysis
+                if not self.process_submission(form_data, user_email):
+                    st.error("Error processing submission.")
+                    return
+                
+                st.success("WPR submitted successfully! Check your email for a summary.")
+                st.session_state.submitted = True
+                
+                # Display HR analysis
+                self.display_hr_analysis(form_data['Name'])
+                
+        except Exception as e:
+            logging.error(f"Error processing form submission: {str(e)}")
+            st.error("Error processing your submission. Please try again.")
+
+    def run(self) -> None:
+        """Run the WPR application"""
+        try:
+            self.setup_page()
+            self.initialize_session_state()
+            
+            # Display header
+            self.ui.display_header(st.session_state.week_number)
+            
+            # Name selection
+            st.session_state.selected_name = st.selectbox(
+                "Select Your Name",
+                options=[""] + self.config.get_all_team_members(),
+                format_func=lambda x: "Select your name" if x == "" else x
+            )
+            
+            if st.session_state.selected_name:
+                self._handle_user_submission()
+        
+        except Exception as e:
+            logging.error(f"Application error: {str(e)}")
+            st.error("An error occurred. Please try again or contact support.")
+
+    def _handle_user_submission(self):
+        """Handle user submission logic"""
+        try:
+            # Check for existing submission
+            if self.db.check_existing_submission(
+                st.session_state.selected_name,
+                st.session_state.week_number,
+                datetime.now().year
+            ):
+                st.warning("You have already submitted a report for this week.")
                 return
+            
+            # Display user history
+            user_data = self.db.get_user_reports(st.session_state.selected_name)
+            self.ui.display_user_history(user_data)
+            
+            # Get form inputs
+            form_data = self._collect_form_data()
+            
+            # Handle submission
+            if form_data:
+                self._process_form_submission(form_data)
+        
+        except Exception as e:
+            logging.error(f"Error handling submission: {str(e)}")
+            st.error("Error processing your submission. Please try again.")
 
-            hr_analysis = hr_history[0]
-            historical_data = hr_history
+    def _collect_form_data(self):
+        """Collect and validate form data"""
+        try:
+            # Task Section
+            completed_tasks, pending_tasks, dropped_tasks = self.ui.display_task_section()
             
-            # Display dashboard
-            HRVisualizations.display_hr_dashboard(hr_analysis, historical_data)
-            
-            logging.info(f"HR analysis displayed successfully for {employee_name}")
-    except Exception as e:
-        logging.error(f"Error displaying HR analysis: {str(e)}")
-        st.error("Error displaying HR analysis dashboard.")
-
-def process_submission(self, data: Dict[str, Any], user_email: str) -> bool:
-    try:
-        # Generate HR analysis
-        hr_analysis = self.ai_hr_analyzer.generate_hr_analysis(data)
-        
-        # Save HR analysis to database
-        self.db.save_hr_analysis(hr_analysis)
-        
-        # Send HR analysis email
-        hr_email_content = self.email_handler.format_hr_analysis_email(
-            data['Name'],
-            data['Week Number'],
-            hr_analysis
-        )
-        
-        self.email_handler.send_email(
-            to_email=user_email,
-            to_name=data['Name'],
-            subject=f"HR Analysis Report - Week {data['Week Number']}",
-            html_content=hr_email_content
-        )
-        
-        # Display HR analysis dashboard
-        self.display_hr_analysis(data['Name'])
-        
-        return True
-    except Exception as e:
-        logging.error(f"Error processing submission: {str(e)}")
-        return False
-
-def _process_form_submission(self, form_data: Dict[str, Any]):
-    """Process the form submission"""
-    try:
-        user_email = form_data.pop('user_email')  # Remove email from data dict
-        
-        with st.spinner("Processing your submission..."):
-            # Save to database
-            if not self.db.save_data(form_data):
-                st.error("Error saving data to database.")
-                return
-            
-            # Process submission with AI analysis
-            if not self.process_submission(form_data, user_email):
-                st.error("Error processing submission.")
-                return
-            
-            st.success("WPR submitted successfully! Check your email for a summary.")
-            st.session_state.submitted = True
-            
-            # Display HR analysis
-            self.display_hr_analysis(form_data['Name'])
-            
-    except Exception as e:
-        logging.error(f"Error processing form submission: {str(e)}")
-        st.error("Error processing your submission. Please try again.")
-
-def run(self):
-    """Run the WPR application"""
-    try:
-        self.setup_page()
-        self.initialize_session_state()
-        
-        # Display header
-        self.ui.display_header(st.session_state.week_number)
-        
-        # Name selection
-        st.session_state.selected_name = st.selectbox(
-            "Select Your Name",
-            options=[""] + self.config.get_all_team_members(),
-            format_func=lambda x: "Select your name" if x == "" else x
-        )
-        
-        if st.session_state.selected_name:
-            self._handle_user_submission()
-    
-    except Exception as e:
-        logging.error(f"Application error: {str(e)}")
-        st.error("An error occurred. Please try again or contact support.")
-
-def _handle_user_submission(self):
-    """Handle user submission logic"""
-    try:
-        # Check for existing submission
-        if self.db.check_existing_submission(
-            st.session_state.selected_name,
-            st.session_state.week_number,
-            datetime.now().year
-        ):
-            st.warning("You have already submitted a report for this week.")
-            return
-        
-        # Display user history
-        user_data = self.db.get_user_reports(st.session_state.selected_name)
-        self.ui.display_user_history(user_data)
-        
-        # Get form inputs
-        form_data = self._collect_form_data()
-        
-        # Handle submission
-        if form_data:
-            self._process_form_submission(form_data)
-    
-    except Exception as e:
-        logging.error(f"Error handling submission: {str(e)}")
-        st.error("Error processing your submission. Please try again.")
-
-def _collect_form_data(self):
-    """Collect and validate form data"""
-    try:
-        # Task Section
-        completed_tasks, pending_tasks, dropped_tasks = self.ui.display_task_section()
-        
-        # Validate tasks
-        if not completed_tasks and not pending_tasks:
-            st.warning("Please enter at least one completed or pending task.")
-            return None
-        
-        # Project Section
-        projects = self.ui.display_project_section()
-        
-        # Productivity Section
-        (productivity_rating, productivity_suggestions, 
-         productivity_details, productive_time, 
-         productive_place) = self.ui.display_productivity_section(self.config)
-        
-        # Validate productivity
-        if not productivity_rating:
-            st.warning("Please select a productivity rating.")
-            return None
-        
-        # Peer Evaluation Section
-        team = self.config.get_team_for_member(st.session_state.selected_name)
-        if not team:
-            st.error("Team not found for selected user.")
-            return None
-            
-        teammates = [
-            member for member in self.config.teams[team] 
-            if member != st.session_state.selected_name
-        ]
-        peer_ratings = self.ui.display_peer_evaluation_section(teammates)
-        
-        # Email input with validation
-        user_email = st.text_input("Enter your email address")
-        
-        if st.button("Submit WPR"):
-            # Validate email
-            if not user_email or not self.validator.validate_email(user_email):
-                st.error("Please enter a valid email address")
+            # Validate tasks
+            if not completed_tasks and not pending_tasks:
+                st.warning("Please enter at least one completed or pending task.")
                 return None
             
-            # Validate peer ratings
-            if not peer_ratings and teammates:
-                st.warning("Please provide at least one peer evaluation.")
+            # Project Section
+            projects = self.ui.display_project_section()
+            
+            # Productivity Section
+            (productivity_rating, productivity_suggestions, 
+            productivity_details, productive_time, 
+            productive_place) = self.ui.display_productivity_section(self.config)
+            
+            # Validate productivity
+            if not productivity_rating:
+                st.warning("Please select a productivity rating.")
                 return None
             
-            # Create and return form data
-            form_data = {
-                "Name": st.session_state.selected_name,
-                "Team": team,
-                "Week Number": st.session_state.week_number,
-                "Year": datetime.now().year,
-                "Completed Tasks": self.validator.validate_tasks(completed_tasks),
-                "Pending Tasks": self.validator.validate_tasks(pending_tasks),
-                "Dropped Tasks": self.validator.validate_tasks(dropped_tasks),
-                "Projects": self.validator.validate_projects(projects),
-                "Productivity Rating": productivity_rating,
-                "Productivity Suggestions": productivity_suggestions,
-                "Productivity Details": productivity_details,
-                "Productive Time": productive_time,
-                "Productive Place": productive_place,
-                "Peer_Evaluations": self.validator.validate_peer_ratings(peer_ratings),
-                "user_email": user_email
-            }
+            # Peer Evaluation Section
+            team = self.config.get_team_for_member(st.session_state.selected_name)
+            if not team:
+                st.error("Team not found for selected user.")
+                return None
+                
+            teammates = [
+                member for member in self.config.teams[team] 
+                if member != st.session_state.selected_name
+            ]
+            peer_ratings = self.ui.display_peer_evaluation_section(teammates)
             
-            # Log submission attempt
-            logging.info(f"Form data collected for {form_data['Name']} - Week {form_data['Week Number']}")
+            # Email input with validation
+            user_email = st.text_input("Enter your email address")
             
-            return form_data
+            if st.button("Submit WPR"):
+                # Validate email
+                if not user_email or not self.validator.validate_email(user_email):
+                    st.error("Please enter a valid email address")
+                    return None
+                
+                # Validate peer ratings
+                if not peer_ratings and teammates:
+                    st.warning("Please provide at least one peer evaluation.")
+                    return None
+                
+                # Create and return form data
+                form_data = {
+                    "Name": st.session_state.selected_name,
+                    "Team": team,
+                    "Week Number": st.session_state.week_number,
+                    "Year": datetime.now().year,
+                    "Completed Tasks": self.validator.validate_tasks(completed_tasks),
+                    "Pending Tasks": self.validator.validate_tasks(pending_tasks),
+                    "Dropped Tasks": self.validator.validate_tasks(dropped_tasks),
+                    "Projects": self.validator.validate_projects(projects),
+                    "Productivity Rating": productivity_rating,
+                    "Productivity Suggestions": productivity_suggestions,
+                    "Productivity Details": productivity_details,
+                    "Productive Time": productive_time,
+                    "Productive Place": productive_place,
+                    "Peer_Evaluations": self.validator.validate_peer_ratings(peer_ratings),
+                    "user_email": user_email
+                }
+                
+                # Log submission attempt
+                logging.info(f"Form data collected for {form_data['Name']} - Week {form_data['Week Number']}")
+                
+                return form_data
+            
+            return None
         
-        return None
-    
-    except Exception as e:
-        logging.error(f"Error collecting form data: {str(e)}")
-        st.error("Error collecting form data. Please try again.")
-        return None
-    
-    except Exception as e:
-        logging.error(f"Error collecting form data: {str(e)}")
-        st.error("Error collecting form data. Please try again.")
-        return None
+        except Exception as e:
+            logging.error(f"Error collecting form data: {str(e)}")
+            st.error("Error collecting form data. Please try again.")
+            return None
 
 if __name__ == "__main__":
     app = WPRApp()
