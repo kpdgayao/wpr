@@ -3,6 +3,7 @@ import logging
 from typing import List, Dict, Any
 import anthropic
 from datetime import datetime
+import time
 
 # At the top of the file, after imports
 logging.basicConfig(
@@ -204,3 +205,94 @@ class AIHRAnalyzer:
         except Exception as e:
             logging.error(f"Error summarizing peer feedback: {str(e)}")
             return "Unable to summarize peer feedback"
+        
+    def _prepare_hr_analysis_prompt(self, wpr_data: Dict[str, Any]) -> str:
+        """Prepare the prompt for HR analysis"""
+        try:
+            # Format the WPR data into a structured prompt
+            prompt = f"""
+            Please analyze this Weekly Productivity Report for {wpr_data['Name']} (Team: {wpr_data['Team']}) 
+            for Week {wpr_data['Week Number']}, {wpr_data['Year']}.
+
+            TASKS:
+            Completed Tasks:
+            {self._format_list(wpr_data.get('Completed Tasks', []))}
+
+            Pending Tasks:
+            {self._format_list(wpr_data.get('Pending Tasks', []))}
+
+            Dropped Tasks:
+            {self._format_list(wpr_data.get('Dropped Tasks', []))}
+
+            PROJECTS:
+            {self._format_projects(wpr_data.get('Projects', []))}
+
+            PRODUCTIVITY:
+            Rating: {wpr_data.get('Productivity Rating', 'Not specified')}
+            Details: {wpr_data.get('Productivity Details', 'Not provided')}
+            Most Productive Time: {wpr_data.get('Productive Time', 'Not specified')}
+            Preferred Work Location: {wpr_data.get('Productive Place', 'Not specified')}
+
+            PEER EVALUATIONS:
+            {self._format_peer_evaluations(wpr_data.get('Peer_Evaluations', {}))}
+
+            Please provide a comprehensive HR analysis including:
+            1. Performance assessment
+            2. Productivity trends
+            3. Team collaboration evaluation
+            4. Growth opportunities
+            5. Risk factors
+            6. Recommendations for improvement
+            7. Wellness indicators
+            8. Skill development needs
+            """
+            
+            logging.info(f"HR analysis prompt prepared for {wpr_data['Name']}")
+            return prompt
+
+        except Exception as e:
+            logging.error(f"Error preparing HR analysis prompt: {str(e)}")
+            raise
+
+    def _format_list(self, items: List[str]) -> str:
+        """Format a list of items into a string"""
+        if not items:
+            return "None"
+        return "\n".join(f"- {item}" for item in items)
+
+    def _format_projects(self, projects: List[Dict[str, Any]]) -> str:
+        """Format projects into a string"""
+        if not projects:
+            return "No projects reported"
+        return "\n".join(f"- {p.get('name', 'Unnamed')}: {p.get('completion', 0)}% complete" 
+                        for p in projects)
+
+    def _format_peer_evaluations(self, evaluations: Dict[str, Any]) -> str:
+        """Format peer evaluations into a string"""
+        if not evaluations:
+            return "No peer evaluations provided"
+        return "\n".join(
+            f"- {peer}: Rating {eval_data.get('Rating', 'N/A')}, "
+            f"Comments: {eval_data.get('Comments', 'None')}"
+            for peer, eval_data in evaluations.items()
+        )
+
+    def _retry_ai_request(self, prompt: str, max_retries: int = 3) -> Any:
+        """Retry AI request with exponential backoff"""
+        for attempt in range(max_retries):
+            try:
+                response = self.client.messages.create(
+                    model="claude-3-sonnet-20240229",
+                    max_tokens=4000,
+                    messages=[{
+                        "role": "user",
+                        "content": prompt
+                    }]
+                )
+                return response
+            except Exception as e:
+                if attempt == max_retries - 1:
+                    logging.error(f"Failed to get AI response after {max_retries} attempts: {str(e)}")
+                    raise
+                logging.warning(f"Attempt {attempt + 1} failed, retrying...")
+                time.sleep(2 ** attempt)  # Exponential backoff
