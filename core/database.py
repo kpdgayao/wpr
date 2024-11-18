@@ -175,17 +175,32 @@ class DatabaseHandler:
             if 'analysis_timestamp' not in analysis_data:
                 analysis_data['analysis_timestamp'] = datetime.now().isoformat()
             
+            # Create a copy without the ai_analysis field
+            db_data = {k: v for k, v in analysis_data.items() if k != 'ai_analysis'}
+            
             # Ensure all JSON fields are properly serialized
             json_fields = [
                 'performance_metrics', 'skill_assessment', 'wellness_indicators',
-                'growth_recommendations', 'team_dynamics', 'risk_factors'
+                'growth_recommendations', 'team_dynamics', 'risk_factors',
+                'completion_metrics', 'metadata'
             ]
             
             for field in json_fields:
-                if field in analysis_data and not isinstance(analysis_data[field], str):
-                    analysis_data[field] = json.dumps(analysis_data[field])
+                if field in db_data:
+                    # Handle case where field might already be a JSON string
+                    if isinstance(db_data[field], str):
+                        try:
+                            # Validate it's proper JSON by parsing and re-serializing
+                            parsed = json.loads(db_data[field])
+                            db_data[field] = json.dumps(parsed)
+                        except json.JSONDecodeError:
+                            # If invalid JSON string, treat as raw string
+                            db_data[field] = json.dumps(db_data[field])
+                    else:
+                        # Regular case - convert dict/list to JSON string
+                        db_data[field] = json.dumps(db_data[field])
             
-            result = self.client.table(self.hr_table_name).insert(analysis_data).execute()
+            result = self.client.table(self.hr_table_name).insert(db_data).execute()
             logging.info(f"HR analysis saved successfully: {result}")
             return True
         except Exception as e:

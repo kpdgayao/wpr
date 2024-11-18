@@ -3,6 +3,7 @@ import logging
 from mailjet_rest import Client
 from typing import Dict, Any, List
 from datetime import datetime
+import json
 
 class EmailHandler:
     def __init__(self, api_key: str, api_secret: str):
@@ -59,22 +60,33 @@ class EmailHandler:
         """Format WPR email content with HR analysis"""
         try:
             # Validate hr_analysis structure
-            required_fields = ['performance_metrics', 'growth_recommendations']
-            for field in required_fields:
-                if field not in hr_analysis:
-                    raise ValueError(f"Missing required field in HR analysis: {field}")
+            if not isinstance(hr_analysis, dict):
+                logging.error("HR analysis data is not a dictionary")
+                return self._format_error_email(name, week_number)
+                
+            # Get required fields with safe access
+            performance_metrics = hr_analysis.get('performance_metrics', {})
+            if isinstance(performance_metrics, str):
+                try:
+                    performance_metrics = json.loads(performance_metrics)
+                except json.JSONDecodeError:
+                    performance_metrics = {}
+                    
+            wellness = hr_analysis.get('wellness_indicators', {})
+            if isinstance(wellness, str):
+                try:
+                    wellness = json.loads(wellness)
+                except json.JSONDecodeError:
+                    wellness = {}
+                    
+            growth = hr_analysis.get('growth_recommendations', {})
+            if isinstance(growth, str):
+                try:
+                    growth = json.loads(growth)
+                except json.JSONDecodeError:
+                    growth = {}
             
             current_date = datetime.now().strftime("%B %d, %Y")
-            
-            # Get metrics with safe fallbacks
-            performance_metrics = hr_analysis.get('performance_metrics', {})
-            growth_recommendations = hr_analysis.get('growth_recommendations', {})
-            
-            productivity_score = performance_metrics.get('productivity_score', 'N/A')
-            task_completion = performance_metrics.get('task_completion_rate', 'N/A')
-            project_progress = performance_metrics.get('project_progress', 'N/A')
-            
-            immediate_actions = growth_recommendations.get('immediate_actions', [])
             
             email_content = f"""
             <html>
@@ -100,15 +112,21 @@ class EmailHandler:
                             
                             <h3>Performance Metrics</h3>
                             <ul>
-                                <li>Productivity Score: {productivity_score}</li>
-                                <li>Task Completion Rate: {task_completion}%</li>
-                                <li>Project Progress: {project_progress}%</li>
+                                <li>Productivity Score: {performance_metrics.get('productivity_score', 'N/A')}</li>
+                                <li>Task Completion Rate: {performance_metrics.get('task_completion_rate', 'N/A')}%</li>
+                                <li>Project Progress: {performance_metrics.get('project_progress', 'N/A')}%</li>
+                                <li>Collaboration Score: {performance_metrics.get('collaboration_score', 'N/A')}</li>
                             </ul>
                             
-                            <h3>Growth Recommendations</h3>
+                            <h3>Wellness Indicators</h3>
                             <ul>
-                            {"".join([f"<li>{rec}</li>" for rec in immediate_actions])}
+                                <li>Work-Life Balance: {wellness.get('work_life_balance', 'N/A')}</li>
+                                <li>Workload: {wellness.get('workload_assessment', 'N/A')}</li>
+                                <li>Engagement: {wellness.get('engagement_level', 'N/A')}</li>
                             </ul>
+                            
+                            <h3>Key Recommendations</h3>
+                            {self._format_list(growth.get('immediate_actions', []), as_recommendations=True)}
                         </div>
                         
                         <div class="footer">
@@ -121,7 +139,7 @@ class EmailHandler:
             return email_content
         except Exception as e:
             logging.error(f"Error formatting email content: {str(e)}")
-            raise
+            return self._format_error_email(name, week_number)
 
     def format_wpr_email(self, name: str, week_number: int, 
                         ai_analysis: str, hr_analysis: Dict[str, Any] = None) -> str:
@@ -222,3 +240,31 @@ class EmailHandler:
             ])
         
         return "<ul>" + "".join([f"<li>{item}</li>" for item in items]) + "</ul>"
+    
+    def _format_error_email(self, name: str, week_number: int) -> str:
+        """Format error email content"""
+        current_date = datetime.now().strftime("%B %d, %Y")
+        return f"""
+        <html>
+            <head>
+                <style>
+                    body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+                    .container {{ max-width: 800px; margin: 0 auto; padding: 20px; }}
+                    .error {{ color: #721c24; background-color: #f8d7da; padding: 15px; border-radius: 5px; }}
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <h1>Weekly Performance Analysis</h1>
+                    <h2>Week {week_number} - {current_date}</h2>
+                    <p>Dear {name},</p>
+                    <div class="error">
+                        <p>We encountered an error while processing your performance analysis. 
+                        Our technical team has been notified and will look into this issue.</p>
+                        <p>Please try accessing your analysis again later or contact support if the issue persists.</p>
+                    </div>
+                    <p>Best regards,<br>IOL Inc.</p>
+                </div>
+            </body>
+        </html>
+        """
