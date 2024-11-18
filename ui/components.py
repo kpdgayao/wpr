@@ -3,6 +3,17 @@ import streamlit as st
 import matplotlib.pyplot as plt
 from datetime import datetime
 import pandas as pd
+import logging 
+
+# Configure logging if not already configured elsewhere
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(),
+        logging.FileHandler('wpr.log')
+    ]
+)
 
 class UIComponents:
     @staticmethod
@@ -160,17 +171,32 @@ class UIComponents:
     @staticmethod
     def display_productivity_section(config, defaults=None):
         """Display productivity evaluation section with default values"""
-        if defaults is None:
+        if defaults is None:  # Initialize empty defaults if None
             defaults = {}
-            
+                
         st.markdown('<div class="section-header">Productivity Evaluation</div>', 
                    unsafe_allow_html=True)
         
-        productivity_rating = st.select_slider(
-            "Rate your productivity this week",
-            options=config.productivity_ratings,
-            value=defaults.get('productivity_rating', config.productivity_ratings[0])
-        )
+        # Fix for productivity rating slider
+        try:
+            current_value = defaults.get('productivity_rating')
+            # If we have a valid current value, find its index in the options
+            if current_value in config.productivity_ratings:
+                default_index = config.productivity_ratings.index(current_value)
+            else:
+                default_index = 0  # Default to first option if value not found
+                
+            productivity_rating = st.select_slider(
+                "Rate your productivity this week",
+                options=config.productivity_ratings,
+                value=config.productivity_ratings[default_index]
+            )
+        except (ValueError, IndexError) as e:
+            logging.error(f"Error setting productivity slider value: {str(e)}")
+            productivity_rating = st.select_slider(
+                "Rate your productivity this week",
+                options=config.productivity_ratings
+            )
         
         productivity_suggestions = st.multiselect(
             "What would help improve your productivity?",
@@ -186,17 +212,31 @@ class UIComponents:
         
         col1, col2 = st.columns(2)
         with col1:
+            # Handle productive time default value
+            default_time = defaults.get('productive_time')
+            time_index = (
+                config.time_slots.index(default_time) 
+                if default_time in config.time_slots 
+                else 0
+            )
             productive_time = st.radio(
                 "Most productive time",
                 options=config.time_slots,
-                index=config.time_slots.index(defaults.get('productive_time', config.time_slots[0]))
+                index=time_index
             )
         
         with col2:
+            # Handle productive place default value
+            default_place = defaults.get('productive_place')
+            place_index = (
+                config.work_locations.index(default_place)
+                if default_place in config.work_locations
+                else 0
+            )
             productive_place = st.radio(
                 "Preferred work location",
                 options=config.work_locations,
-                index=config.work_locations.index(defaults.get('productive_place', config.work_locations[0]))
+                index=place_index
             )
         
         return (productivity_rating, productivity_suggestions, 

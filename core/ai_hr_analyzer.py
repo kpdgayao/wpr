@@ -220,8 +220,13 @@ class AIHRAnalyzer:
         try:
             if isinstance(rating, (int, float)):
                 return float(rating)
-            rating_str = rating.split()[0]
-            return float(rating_str)
+            if isinstance(rating, str):
+                # Extract first number from string (e.g., "4 - Very Productive" -> 4)
+                import re
+                numbers = re.findall(r'\d+', rating)
+                if numbers:
+                    return float(numbers[0])
+            return 1.0
         except (ValueError, IndexError):
             return 1.0
 
@@ -259,18 +264,15 @@ class AIHRAnalyzer:
                 return 3.0  # Default score
             
             scores = []
-            for eval_data in peer_evals.values():
-                if isinstance(eval_data, str):
+            for peer_score in peer_evals.values():
+                if isinstance(peer_score, (int, float)):
+                    scores.append(float(peer_score))
+                elif isinstance(peer_score, dict):
+                    scores.append(float(peer_score.get('Rating', 3.0)))
+                elif isinstance(peer_score, str):
                     try:
-                        rating = float(eval_data.split()[0])
-                        scores.append(rating)
+                        scores.append(float(peer_score.split()[0]))
                     except (ValueError, IndexError):
-                        scores.append(3.0)
-                elif isinstance(eval_data, dict):
-                    try:
-                        rating = float(eval_data.get('Rating', 3))
-                        scores.append(rating)
-                    except (ValueError, TypeError):
                         scores.append(3.0)
                 else:
                     scores.append(3.0)

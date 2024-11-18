@@ -57,46 +57,17 @@ class EmailHandler:
             raise
 
     def format_hr_analysis_email(self, name: str, week_number: int, hr_analysis: Dict[str, Any]) -> str:
-        """Format WPR email content with HR analysis"""
         try:
-            # Validate hr_analysis structure
-            if not isinstance(hr_analysis, dict):
-                logging.error("HR analysis data is not a dictionary")
-                return self._format_error_email(name, week_number)
-                
-            # Get required fields with safe access
-            performance_metrics = hr_analysis.get('performance_metrics', {})
-            if isinstance(performance_metrics, str):
-                try:
-                    performance_metrics = json.loads(performance_metrics)
-                except json.JSONDecodeError:
-                    performance_metrics = {}
-                    
-            wellness = hr_analysis.get('wellness_indicators', {})
-            if isinstance(wellness, str):
-                try:
-                    wellness = json.loads(wellness)
-                except json.JSONDecodeError:
-                    wellness = {}
-                    
-            growth = hr_analysis.get('growth_recommendations', {})
-            if isinstance(growth, str):
-                try:
-                    growth = json.loads(growth)
-                except json.JSONDecodeError:
-                    growth = {}
-            
             current_date = datetime.now().strftime("%B %d, %Y")
+            ai_analysis = hr_analysis.get('ai_analysis', '')
             
             email_content = f"""
             <html>
                 <head>
                     <style>
-                        body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+                        body {{ font-family: Arial, sans-serif; line-height: 1.6; }}
                         .container {{ max-width: 800px; margin: 0 auto; padding: 20px; }}
                         .header {{ color: #2E86C1; margin-bottom: 20px; }}
-                        .section {{ margin: 20px 0; padding: 15px; background-color: #f8f9fa; border-radius: 5px; }}
-                        .footer {{ margin-top: 30px; color: #666; font-size: 0.9em; }}
                     </style>
                 </head>
                 <body>
@@ -106,27 +77,9 @@ class EmailHandler:
                             <h2>Week {week_number} - {current_date}</h2>
                         </div>
                         
-                        <div class="section">
+                        <div class="content">
                             <p>Dear {name},</p>
-                            <p>Here is your weekly performance analysis summary.</p>
-                            
-                            <h3>Performance Metrics</h3>
-                            <ul>
-                                <li>Productivity Score: {performance_metrics.get('productivity_score', 'N/A')}</li>
-                                <li>Task Completion Rate: {performance_metrics.get('task_completion_rate', 'N/A')}%</li>
-                                <li>Project Progress: {performance_metrics.get('project_progress', 'N/A')}%</li>
-                                <li>Collaboration Score: {performance_metrics.get('collaboration_score', 'N/A')}</li>
-                            </ul>
-                            
-                            <h3>Wellness Indicators</h3>
-                            <ul>
-                                <li>Work-Life Balance: {wellness.get('work_life_balance', 'N/A')}</li>
-                                <li>Workload: {wellness.get('workload_assessment', 'N/A')}</li>
-                                <li>Engagement: {wellness.get('engagement_level', 'N/A')}</li>
-                            </ul>
-                            
-                            <h3>Key Recommendations</h3>
-                            {self._format_list(growth.get('immediate_actions', []), as_recommendations=True)}
+                            {ai_analysis}
                         </div>
                         
                         <div class="footer">
@@ -137,9 +90,10 @@ class EmailHandler:
             </html>
             """
             return email_content
+            
         except Exception as e:
             logging.error(f"Error formatting email content: {str(e)}")
-            return self._format_error_email(name, week_number)
+            raise
 
     def format_wpr_email(self, name: str, week_number: int, 
                         ai_analysis: str, hr_analysis: Dict[str, Any] = None) -> str:
