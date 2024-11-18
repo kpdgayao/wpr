@@ -1,9 +1,10 @@
 # main.py
 import streamlit as st
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 import anthropic
 from typing import Dict, Any
+import pandas as pd  
 
 # Import from our modules
 from config.settings import Config
@@ -71,16 +72,291 @@ class WPRApp:
     def initialize_session_state(self) -> None:
         """Initialize or reset session state variables"""
         if 'initialized' not in st.session_state:
+            current_week = datetime.now().isocalendar()[1]
             st.session_state.update({
                 'initialized': True,
                 'selected_name': "",
-                'week_number': datetime.now().isocalendar()[1],
+                'week_number': current_week,
+                'edit_mode': False,
+                'edit_id': None,
                 'show_task_section': False,
                 'show_project_section': False,
                 'show_productivity_section': False,
                 'show_peer_evaluation_section': False,
-                'submitted': False
+                'submitted': False,
+                'form_data': {}  # Store form data for editing
             })
+
+    def _display_week_selector(self):
+        """Display week selection widget"""
+        current_week = datetime.now().isocalendar()[1]
+        current_year = datetime.now().year
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # Allow selecting from past 4 weeks to next week
+            weeks = list(range(current_week - 4, current_week + 2))
+            week_options = [f"Week {w}" for w in weeks]
+            selected_week = st.selectbox(
+                "Select Week",
+                options=week_options,
+                index=weeks.index(st.session_state.week_number),
+                key='week_selector'
+            )
+            st.session_state.week_number = int(selected_week.split()[1])
+        
+        with col2:
+            st.write(f"Year: {current_year}")
+
+    def _handle_user_submission(self):
+        """Handle user submission logic"""
+        try:
+            # Display week selector if not in edit mode
+            if not st.session_state.edit_mode:
+                self._display_week_selector()
+            
+            # Display user history
+            user_data = self.db.get_user_reports(st.session_state.selected_name)
+            if not user_data.empty:
+                st.markdown("### Previous Submissions")
+                for _, row in user_data.iterrows():
+                    col1, col2, col3 = st.columns([3, 1, 1])
+                    with col1:
+                        st.write(f"Week {row['Week Number']} - {row.get('created_at', 'No date')}")
+                    with col2:
+                        if st.button("📝 Edit", key=f"edit_{row['id']}"):
+                            st.session_state.edit_mode = True
+                            st.session_state.edit_id = row['id']
+                            self._load_submission_for_edit(row)
+                            st.rerun()
+                    with col3:
+                        if st.button("👁️ View", key=f"view_{row['id']}"):
+                            self._display_submission_details(row)
+            
+            # Check for existing submission only if not in edit mode
+            if not st.session_state.edit_mode:
+                existing = self.db.check_existing_submission(
+                    st.session_state.selected_name,
+                    st.session_state.week_number,
+                    datetime.now().year
+                )
+                if existing:
+                    st.warning(f"You have already submitted a report for Week {st.session_state.week_number}. You can edit it from the list above.")
+                    return
+            
+            # Get form inputs
+            form_data = self._collect_form_data()
+            
+            # Handle submission
+            if form_data:
+                if st.session_state.edit_mode:
+                    self._process_edit_submission(form_data)
+                else:
+                    self._process_form_submission(form_data)
+        
+        except Exception as e:
+            logging.error(f"Error handling submission: {str(e)}")
+            st.error("Error processing your submission. Please try again.")
+
+    def _load_submission_for_edit(self, row: pd.Series):
+        """Load existing submission data for editing"""
+        try:
+            # Store the data in session state
+            st.session_state.form_data = {
+                'completed_tasks': '\n'.join(row.get('Completed Tasks', [])),
+                'pending_tasks': '\n'.join(row.get('Pending Tasks', [])),
+                'dropped_tasks': '\n'.join(row.get('Dropped Tasks', [])),
+                'projects': '\n'.join([f"{p['name']}, {p['completion']}" 
+                                     for p in row.get('Projects', [])]),
+                'productivity_rating': row.get('Productivity Rating', ''),
+                'productivity_suggestions': row.get('Productivity Suggestions', []),
+                'productivity_details': row.get('Productivity Details', ''),
+                'productive_time': row.get('Productive Time', ''),
+                'productive_place': row.get('Productive Place', ''),
+                'week_number': row.get('Week Number', st.session_state.week_number)
+            }
+            
+            # Update week number in session state
+            st.session_state.week_number = row.get('Week Number', st.session_state.week_number)
+            
+            logging.info(f"Loaded submission {row.get('id')} for editing")
+        except Exception as e:
+            logging.error(f"Error loading submission for edit: {str(e)}")
+            st.error("Error loading submission data. Please try again.")
+
+    def _display_submission_details(self, row: pd.Series):
+        """Display detailed view of a submission"""
+        with st.expander("Submission Details", expanded=True):
+            st.markdown(f"### Week {row['Week Number']} Report")
+            st.write(f"Submitted: {row.get('created_at', 'No date')}")
+            
+            st.markdown("#### Completed Tasks")
+            for task in row.get('Completed Tasks', []):
+                st.write(f"- {task}")
+            
+            st.markdown("#### Pending Tasks")
+            for task in row.get('Pending Tasks', []):
+                st.write(f"- {task}")
+            
+            st.markdown("#### Projects")
+            for project in row.get('Projects', []):
+                st.write(f"- {project['name']}: {project['completion']}% complete")
+            
+            st.markdown("#### Productivity")
+            st.write(f"Rating: {row.get('Productivity Rating', 'Not specified')}")
+            st.write(f"Most Productive Time: {row.get('Productive Time', 'Not specified')}")
+            st.write(f"Preferred Location: {row.get('Productive Place', 'Not specified')}")
+
+    def _process_edit_submission(self, form_data: Dict[str, Any]):
+        """Process edited form submission"""
+        try:
+            user_email = form_data.pop('user_email')  # Remove email from data dict
+            
+            with st.spinner("Processing your updated submission..."):
+                # Update database
+                if not self.db.update_data(form_data, st.session_state.edit_id):
+                    st.error("Error updating data in database.")
+                    return
+                
+                # Process submission with AI analysis
+                if not self.process_submission(form_data, user_email):
+                    st.error("Error processing submission.")
+                    return
+                
+                st.success("WPR updated successfully! Check your email for a summary.")
+                
+                # Reset edit mode
+                st.session_state.edit_mode = False
+                st.session_state.edit_id = None
+                st.session_state.form_data = {}
+                
+                # Display HR analysis
+                self.display_hr_analysis(form_data['Name'])
+                
+                # Rerun to refresh the page
+                st.rerun()
+                
+        except Exception as e:
+            logging.error(f"Error processing edit submission: {str(e)}")
+            st.error("Error processing your submission. Please try again.")
+
+    def _collect_form_data(self):
+        """Collect and validate form data"""
+        try:
+            # Add a cancel button if in edit mode
+            if st.session_state.edit_mode:
+                if st.button("Cancel Edit"):
+                    st.session_state.edit_mode = False
+                    st.session_state.edit_id = None
+                    st.session_state.form_data = {}
+                    st.rerun()
+                st.markdown("### Editing Previous Submission")
+
+            # Task Section
+            completed_tasks, pending_tasks, dropped_tasks = self.ui.display_task_section(
+                default_completed=st.session_state.form_data.get('completed_tasks', ''),
+                default_pending=st.session_state.form_data.get('pending_tasks', ''),
+                default_dropped=st.session_state.form_data.get('dropped_tasks', '')
+            )
+            
+            # Validate tasks
+            if not completed_tasks and not pending_tasks:
+                st.warning("Please enter at least one completed or pending task.")
+                return None
+            
+            # Project Section
+            projects = self.ui.display_project_section(
+                default_projects=st.session_state.form_data.get('projects', '')
+            )
+            
+            # Productivity Section
+            productivity_defaults = {
+                'productivity_rating': st.session_state.form_data.get('productivity_rating', ''),
+                'productivity_suggestions': st.session_state.form_data.get('productivity_suggestions', []),
+                'productivity_details': st.session_state.form_data.get('productivity_details', ''),
+                'productive_time': st.session_state.form_data.get('productive_time', ''),
+                'productive_place': st.session_state.form_data.get('productive_place', '')
+            }
+            
+            (productivity_rating, productivity_suggestions, 
+            productivity_details, productive_time, 
+            productive_place) = self.ui.display_productivity_section(
+                self.config,
+                defaults=productivity_defaults
+            )
+            
+            # Validate productivity
+            if not productivity_rating:
+                st.warning("Please select a productivity rating.")
+                return None
+            
+            # Peer Evaluation Section
+            team = self.config.get_team_for_member(st.session_state.selected_name)
+            if not team:
+                st.error("Team not found for selected user.")
+                return None
+                
+            teammates = [
+                member for member in self.config.teams[team] 
+                if member != st.session_state.selected_name
+            ]
+            
+            peer_ratings = self.ui.display_peer_evaluation_section(
+                teammates,
+                default_ratings=st.session_state.form_data.get('Peer_Evaluations', {})
+            )
+            
+            # Email input with validation
+            user_email = st.text_input(
+                "Enter your email address",
+                value=st.session_state.form_data.get('user_email', '')
+            )
+            
+            # Update button text based on mode
+            button_text = "Update WPR" if st.session_state.edit_mode else "Submit WPR"
+            
+            if st.button(button_text):
+                # Validate email
+                if not user_email or not self.validator.validate_email(user_email):
+                    st.error("Please enter a valid email address")
+                    return None
+                
+                # Validate peer ratings
+                if not peer_ratings and teammates:
+                    st.warning("Please provide at least one peer evaluation.")
+                    return None
+                
+                # Create and return form data
+                form_data = {
+                    "Name": st.session_state.selected_name,
+                    "Team": team,
+                    "Week Number": st.session_state.week_number,
+                    "Year": datetime.now().year,
+                    "Completed Tasks": self.validator.validate_tasks(completed_tasks),
+                    "Pending Tasks": self.validator.validate_tasks(pending_tasks),
+                    "Dropped Tasks": self.validator.validate_tasks(dropped_tasks),
+                    "Projects": self.validator.validate_projects(projects),
+                    "Productivity Rating": productivity_rating,
+                    "Productivity Suggestions": productivity_suggestions,
+                    "Productivity Details": productivity_details,
+                    "Productive Time": productive_time,
+                    "Productive Place": productive_place,
+                    "Peer_Evaluations": self.validator.validate_peer_ratings(peer_ratings),
+                    "user_email": user_email
+                }
+                
+                # Log submission attempt
+                logging.info(f"Form data collected for {form_data['Name']} - Week {form_data['Week Number']}")
+                
+                return form_data
+            
+            return None
+        
+        except Exception as e:
+            logging.error(f"Error collecting form data: {str(e)}")
+            st.error("Error collecting form data. Please try again.")
+            return None
 
     def setup_page(self) -> None:
         """Set up the Streamlit page configuration"""
@@ -373,114 +649,6 @@ class WPRApp:
         except Exception as e:
             logging.error(f"Application error: {str(e)}")
             st.error("An error occurred. Please try again or contact support.")
-
-    def _handle_user_submission(self):
-        """Handle user submission logic"""
-        try:
-            # Check for existing submission
-            if self.db.check_existing_submission(
-                st.session_state.selected_name,
-                st.session_state.week_number,
-                datetime.now().year
-            ):
-                st.warning("You have already submitted a report for this week.")
-                return
-            
-            # Display user history
-            user_data = self.db.get_user_reports(st.session_state.selected_name)
-            self.ui.display_user_history(user_data)
-            
-            # Get form inputs
-            form_data = self._collect_form_data()
-            
-            # Handle submission
-            if form_data:
-                self._process_form_submission(form_data)
-        
-        except Exception as e:
-            logging.error(f"Error handling submission: {str(e)}")
-            st.error("Error processing your submission. Please try again.")
-
-    def _collect_form_data(self):
-        """Collect and validate form data"""
-        try:
-            # Task Section
-            completed_tasks, pending_tasks, dropped_tasks = self.ui.display_task_section()
-            
-            # Validate tasks
-            if not completed_tasks and not pending_tasks:
-                st.warning("Please enter at least one completed or pending task.")
-                return None
-            
-            # Project Section
-            projects = self.ui.display_project_section()
-            
-            # Productivity Section
-            (productivity_rating, productivity_suggestions, 
-            productivity_details, productive_time, 
-            productive_place) = self.ui.display_productivity_section(self.config)
-            
-            # Validate productivity
-            if not productivity_rating:
-                st.warning("Please select a productivity rating.")
-                return None
-            
-            # Peer Evaluation Section
-            team = self.config.get_team_for_member(st.session_state.selected_name)
-            if not team:
-                st.error("Team not found for selected user.")
-                return None
-                
-            teammates = [
-                member for member in self.config.teams[team] 
-                if member != st.session_state.selected_name
-            ]
-            peer_ratings = self.ui.display_peer_evaluation_section(teammates)
-            
-            # Email input with validation
-            user_email = st.text_input("Enter your email address")
-            
-            if st.button("Submit WPR"):
-                # Validate email
-                if not user_email or not self.validator.validate_email(user_email):
-                    st.error("Please enter a valid email address")
-                    return None
-                
-                # Validate peer ratings
-                if not peer_ratings and teammates:
-                    st.warning("Please provide at least one peer evaluation.")
-                    return None
-                
-                # Create and return form data
-                form_data = {
-                    "Name": st.session_state.selected_name,
-                    "Team": team,
-                    "Week Number": st.session_state.week_number,
-                    "Year": datetime.now().year,
-                    "Completed Tasks": self.validator.validate_tasks(completed_tasks),
-                    "Pending Tasks": self.validator.validate_tasks(pending_tasks),
-                    "Dropped Tasks": self.validator.validate_tasks(dropped_tasks),
-                    "Projects": self.validator.validate_projects(projects),
-                    "Productivity Rating": productivity_rating,
-                    "Productivity Suggestions": productivity_suggestions,
-                    "Productivity Details": productivity_details,
-                    "Productive Time": productive_time,
-                    "Productive Place": productive_place,
-                    "Peer_Evaluations": self.validator.validate_peer_ratings(peer_ratings),
-                    "user_email": user_email
-                }
-                
-                # Log submission attempt
-                logging.info(f"Form data collected for {form_data['Name']} - Week {form_data['Week Number']}")
-                
-                return form_data
-            
-            return None
-        
-        except Exception as e:
-            logging.error(f"Error collecting form data: {str(e)}")
-            st.error("Error collecting form data. Please try again.")
-            return None
 
 if __name__ == "__main__":
     app = WPRApp()

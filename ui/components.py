@@ -118,59 +118,69 @@ class UIComponents:
             st.pyplot(fig)
 
     @staticmethod
-    def display_task_section():
-        """Display task input section"""
+    def display_task_section(default_completed='', default_pending='', default_dropped=''):
+        """Display task input section with default values"""
         st.markdown('<div class="section-header">Task Management</div>', 
                    unsafe_allow_html=True)
         
         completed_tasks = st.text_area(
             "Completed Tasks (one per line)",
+            value=default_completed,
             help="List all tasks you completed this week"
         )
         
         pending_tasks = st.text_area(
             "Pending Tasks (one per line)",
+            value=default_pending,
             help="List all tasks that are still in progress"
         )
         
         dropped_tasks = st.text_area(
             "Dropped Tasks (one per line)",
+            value=default_dropped,
             help="List all tasks that were dropped or cancelled"
         )
         
         return completed_tasks, pending_tasks, dropped_tasks
 
     @staticmethod
-    def display_project_section():
-        """Display project input section"""
+    def display_project_section(default_projects=''):
+        """Display project input section with default values"""
         st.markdown('<div class="section-header">Project Progress</div>', 
                    unsafe_allow_html=True)
         
         projects = st.text_area(
             "Projects and Completion Percentage",
+            value=default_projects,
             help="Enter each project in format: Project Name, Completion% (e.g., 'Website Redesign, 75')"
         )
         
         return projects
 
     @staticmethod
-    def display_productivity_section(config):
-        """Display productivity evaluation section"""
+    def display_productivity_section(config, defaults=None):
+        """Display productivity evaluation section with default values"""
+        if defaults is None:
+            defaults = {}
+            
         st.markdown('<div class="section-header">Productivity Evaluation</div>', 
                    unsafe_allow_html=True)
         
         productivity_rating = st.select_slider(
             "Rate your productivity this week",
-            options=config.productivity_ratings
+            options=config.productivity_ratings,
+            value=defaults.get('productivity_rating', config.productivity_ratings[0])
         )
         
         productivity_suggestions = st.multiselect(
             "What would help improve your productivity?",
-            options=config.productivity_suggestions
+            options=config.productivity_suggestions,
+            default=defaults.get('productivity_suggestions', [])
         )
         
         productivity_details = st.text_area(
             "Additional Details",
+            value=defaults.get('productivity_details', ''),
             help="Provide more context about your productivity this week"
         )
         
@@ -178,34 +188,48 @@ class UIComponents:
         with col1:
             productive_time = st.radio(
                 "Most productive time",
-                options=config.time_slots
+                options=config.time_slots,
+                index=config.time_slots.index(defaults.get('productive_time', config.time_slots[0]))
             )
         
         with col2:
             productive_place = st.radio(
                 "Preferred work location",
-                options=config.work_locations
+                options=config.work_locations,
+                index=config.work_locations.index(defaults.get('productive_place', config.work_locations[0]))
             )
         
         return (productivity_rating, productivity_suggestions, 
                 productivity_details, productive_time, productive_place)
 
     @staticmethod
-    def display_peer_evaluation_section(teammates):
-        """Display peer evaluation section"""
+    def display_peer_evaluation_section(teammates, default_ratings=None):
+        """Display peer evaluation section with default values"""
+        if default_ratings is None:
+            default_ratings = {}
+            
         st.markdown('<div class="section-header">Peer Evaluation</div>', 
                    unsafe_allow_html=True)
         
         selected_peers = st.multiselect(
             "Select teammates you worked with this week",
-            options=teammates
+            options=teammates,
+            default=[peer for peer in default_ratings.keys() if peer in teammates]
         )
         
         peer_ratings = {}
+        rating_options = ["1 (Poor)", "2 (Fair)", "3 (Good)", "4 (Excellent)"]
+        
         for peer in selected_peers:
+            default_index = 0
+            if peer in default_ratings:
+                default_value = default_ratings[peer].get('Rating', 1)
+                default_index = default_value - 1 if 1 <= default_value <= 4 else 0
+                
             rating = st.radio(
                 f"Rate {peer}",
-                options=["1 (Poor)", "2 (Fair)", "3 (Good)", "4 (Excellent)"],
+                options=rating_options,
+                index=default_index,
                 key=f"peer_rating_{peer}"
             )
             peer_ratings[peer] = rating
