@@ -5,6 +5,7 @@ import plotly.express as px
 from typing import Dict, Any, List, Optional
 import pandas as pd
 import logging
+from datetime import datetime
 
 class HRVisualizations:
     """Class for handling HR data visualizations"""
@@ -98,9 +99,11 @@ class HRVisualizations:
             st.error("Error displaying performance metrics.")
 
     @staticmethod
-    def _metric_gauge(title: str, value: float, max_value: float, suffix: str = "", key_suffix: str = ""):
-        """Create a gauge chart for metrics with unique key"""
+    def _metric_gauge(title: str, value: float, max_value: float, suffix: str = "", unique_id: str = ""):
         try:
+            timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
+            unique_key = f"gauge_{title}_{unique_id}_{timestamp}".lower().replace(" ", "_")
+            
             fig = go.Figure(go.Indicator(
                 mode="gauge+number",
                 value=value,
@@ -120,7 +123,7 @@ class HRVisualizations:
             
             fig.update_layout(height=200)
             # Add unique key for each chart
-            st.plotly_chart(fig, use_container_width=True, key=f"gauge_{title}_{key_suffix}".lower().replace(" ", "_"))
+            st.plotly_chart(fig, use_container_width=True, key=unique_key)
         except Exception as e:
             logging.error(f"Error creating metric gauge: {str(e)}")
             st.error(f"Error displaying {title} metric.")
@@ -144,6 +147,7 @@ class HRVisualizations:
     def _skills_radar_chart(skills: Dict[str, List[str]]):
         """Create radar chart for skills"""
         try:
+            timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
             categories = ['Technical', 'Soft Skills', 'Leadership', 'Communication']
             values = [
                 len(skills.get('technical_skills', [])),
@@ -166,29 +170,26 @@ class HRVisualizations:
             )
             
             # Add unique key for radar chart
-            st.plotly_chart(fig, use_container_width=True, key="skills_radar_chart")
+            st.plotly_chart(fig, use_container_width=True, 
+                        key=f"skills_radar_chart_{timestamp}")
         except Exception as e:
             logging.error(f"Error creating skills radar chart: {str(e)}")
             st.error("Error displaying skills radar chart.")
 
     @staticmethod
     def _display_wellness_indicators(wellness: Dict[str, str]):
-        """Display wellness indicators"""
         try:
             col1, col2, col3 = st.columns(3)
             
             with col1:
                 st.metric("Work-Life Balance", 
-                        wellness.get('work_life_balance', 'N/A'),
-                        key="wellness_balance")
+                        wellness.get('work_life_balance', 'N/A'))
             with col2:
                 st.metric("Workload", 
-                        wellness.get('workload_assessment', 'N/A'),
-                        key="wellness_workload")
+                        wellness.get('workload_assessment', 'N/A'))
             with col3:
                 st.metric("Engagement", 
-                        wellness.get('engagement_level', 'N/A'),
-                        key="wellness_engagement")
+                        wellness.get('engagement_level', 'N/A'))
         except Exception as e:
             logging.error(f"Error displaying wellness indicators: {str(e)}")
             st.error("Error displaying wellness indicators.")
@@ -202,26 +203,29 @@ class HRVisualizations:
 
             df = pd.DataFrame(historical_data)
             
-            # Performance trend
-            fig = px.line(df, 
-                        x='week_number', 
-                        y=['productivity_score', 'collaboration_score'],
-                        title='Performance Trends Over Time',
-                        labels={
-                            'week_number': 'Week Number',
-                            'productivity_score': 'Productivity Score',
-                            'collaboration_score': 'Collaboration Score'
-                        })
-            
-            fig.update_layout(
-                xaxis_title="Week Number",
-                yaxis_title="Score",
-                legend_title="Metrics",
-                hovermode='x unified'
-            )
-            
-            # Add unique key for trends chart
-            st.plotly_chart(fig, use_container_width=True, key="historical_trends_chart")
+            # Ensure data exists for both metrics
+            if 'productivity_score' in df.columns and 'collaboration_score' in df.columns:
+                fig = px.line(df, 
+                            x='week_number', 
+                            y=['productivity_score', 'collaboration_score'],
+                            title='Performance Trends Over Time',
+                            labels={
+                                'week_number': 'Week Number',
+                                'productivity_score': 'Productivity Score',
+                                'collaboration_score': 'Collaboration Score'
+                            })
+                
+                fig.update_layout(
+                    xaxis_title="Week Number",
+                    yaxis_title="Score",
+                    legend_title="Metrics",
+                    hovermode='x unified'
+                )
+                
+                st.plotly_chart(fig, use_container_width=True, key=f"historical_trends_chart_{df['week_number'].iloc[-1]}")
+            else:
+                st.info("Insufficient data for historical trends.")
+                
         except Exception as e:
             logging.error(f"Error displaying historical trends: {str(e)}")
             st.error("Error displaying historical trends.")
@@ -232,17 +236,17 @@ class HRVisualizations:
             immediate_actions = recommendations.get('immediate_actions', [])
             if immediate_actions:
                 for i, action in enumerate(immediate_actions):
-                    st.info(f"📌 {action}", key=f"action_{i}")  # Add key
+                    st.info(f"📌 {action}")
             else:
-                st.info("No immediate actions recommended.", key="no_actions")
+                st.info("No immediate actions recommended.")
             
             with st.expander("View Long-term Development Goals"):
                 development_goals = recommendations.get('development_goals', [])
                 if development_goals:
                     for i, goal in enumerate(development_goals):
-                        st.write(f"🎯 {goal}", key=f"goal_{i}")  # Add key
+                        st.write(f"🎯 {goal}")
                 else:
-                    st.write("No long-term goals set.", key="no_goals")
+                    st.write("No long-term goals set.")
         except Exception as e:
             logging.error(f"Error displaying recommendations: {str(e)}")
             st.error("Error displaying recommendations.")
@@ -286,8 +290,7 @@ class HRVisualizations:
                     "Burnout Risk", 
                     risk_factors.get('burnout_risk', 'N/A'),
                     delta=None,
-                    help="Assessment of potential burnout based on workload and engagement",
-                    key="risk_burnout"  # Add key
+                    help="Assessment of potential burnout based on workload and engagement"
                 )
                 
             with col2:
@@ -295,8 +298,7 @@ class HRVisualizations:
                     "Retention Risk",
                     risk_factors.get('retention_risk', 'N/A'),
                     delta=None,
-                    help="Assessment of retention likelihood",
-                    key="risk_retention"  # Add key
+                    help="Assessment of retention likelihood"
                 )
                 
             with col3:
@@ -304,8 +306,7 @@ class HRVisualizations:
                     "Performance Trend",
                     risk_factors.get('performance_trend', 'N/A'),
                     delta=None,
-                    help="Overall performance trajectory",
-                    key="risk_performance"  # Add key
+                    help="Overall performance trajectory"
                 )
                 
         except Exception as e:
