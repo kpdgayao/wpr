@@ -6,6 +6,7 @@ from datetime import datetime
 import time
 import platform
 import html
+import json
 
 # At the top of the file, after imports
 logging.basicConfig(
@@ -18,6 +19,47 @@ logging.basicConfig(
 )
 
 class AIHRAnalyzer:
+    def _safe_parse_json(self, json_str: str) -> Dict:
+        """Safely parse JSON string with error handling"""
+        try:
+            if isinstance(json_str, dict):
+                return json_str
+            return json.loads(json_str)
+        except (json.JSONDecodeError, TypeError, ValueError) as e:
+            logging.warning(f"Failed to parse JSON: {str(e)}")
+            return {}
+
+    def _format_peer_evaluations(self, evaluations: Dict[str, Any]) -> str:
+        """Format peer evaluations into a string"""
+        try:
+            # First try to parse if it's a JSON string
+            if isinstance(evaluations, str):
+                evaluations = self._safe_parse_json(evaluations)
+
+            # Handle empty or invalid evaluations
+            if not evaluations:
+                return "No peer evaluations provided"
+
+            formatted_evals = []
+            for peer, eval_data in evaluations.items():
+                # Handle case where eval_data might be a string or dict
+                if isinstance(eval_data, str):
+                    eval_data = self._safe_parse_json(eval_data) or {"Rating": eval_data}
+
+                # Safely get rating and comments
+                rating = eval_data.get('Rating', 'N/A') if isinstance(eval_data, dict) else eval_data
+                comments = eval_data.get('Comments', 'None') if isinstance(eval_data, dict) else 'None'
+                
+                formatted_evals.append(
+                    f"- {peer}: Rating {rating}, Comments: {comments}"
+                )
+
+            return "\n".join(formatted_evals) if formatted_evals else "No peer evaluations provided"
+            
+        except Exception as e:
+            logging.error(f"Error formatting peer evaluations: {str(e)}")
+            return "Error processing peer evaluations"
+        
     def __init__(self, anthropic_api_key: str):
         self.client = anthropic.Client(api_key=anthropic_api_key)
 
@@ -97,10 +139,10 @@ class AIHRAnalyzer:
                 'analysis_completion': 100.0  # Percentage of analysis completed
                 },
                 'analysis_timestamp': datetime.now().isoformat(),
-                'employee_name': wpr_data['Name'],
-                'week_number': wpr_data['Week Number'],
-                'year': wpr_data['Year'],
-                'team': wpr_data['Team'],
+                'employee_name': wpr_data.get('Name', 'Unknown'),  # Change from direct access
+                'week_number': wpr_data.get('Week Number', 0),     # Change from direct access
+                'year': wpr_data.get('Year', datetime.now().year), # Change from direct access
+                'team': wpr_data.get('Team', 'Unknown'),           # Change from direct access
                 'ai_analysis': ai_response,  # Include the AI analysis response
                 'metadata': {
                     'version': '1.0',
@@ -113,8 +155,7 @@ class AIHRAnalyzer:
                 }
             }
             
-
-            logging.info(f"HR analysis completed successfully for {wpr_data['Name']}")
+            logging.info(f"Starting HR analysis for {wpr_data.get('Name', 'Unknown')} - Week {wpr_data.get('Week Number', 'N/A')}")
             return analysis_result
 
         except Exception as e:
@@ -212,10 +253,29 @@ class AIHRAnalyzer:
         """Calculate collaboration score based on peer evaluations"""
         try:
             peer_evals = data.get('Peer_Evaluations', {})
+            if isinstance(peer_evals, str):
+                peer_evals = self._safe_parse_json(peer_evals)
             if not peer_evals:
                 return 3.0  # Default score
-            scores = [float(ev.get('Rating', 3)) for ev in peer_evals.values()]
-            return round(sum(scores) / len(scores), 2)
+            
+            scores = []
+            for eval_data in peer_evals.values():
+                if isinstance(eval_data, str):
+                    try:
+                        rating = float(eval_data.split()[0])
+                        scores.append(rating)
+                    except (ValueError, IndexError):
+                        scores.append(3.0)
+                elif isinstance(eval_data, dict):
+                    try:
+                        rating = float(eval_data.get('Rating', 3))
+                        scores.append(rating)
+                    except (ValueError, TypeError):
+                        scores.append(3.0)
+                else:
+                    scores.append(3.0)
+                    
+            return round(sum(scores) / len(scores), 2) if scores else 3.0
         except Exception as e:
             logging.error(f"Error calculating collaboration score: {str(e)}")
             return 3.0
@@ -301,54 +361,6 @@ class AIHRAnalyzer:
         except Exception as e:
             logging.error(f"Error summarizing peer feedback: {str(e)}")
             return "Unable to summarize peer feedback"
-        
-    def _prepare_hr_analysis_prompt(self, wpr_data: Dict[str, Any]) -> str:
-        """Prepare the prompt for HR analysis"""
-        try:
-            # Format the WPR data into a structured prompt
-            prompt = f"""
-            Please analyze this Weekly Productivity Report for {wpr_data['Name']} (Team: {wpr_data['Team']}) 
-            for Week {wpr_data['Week Number']}, {wpr_data['Year']}.
-
-            TASKS:
-            Completed Tasks:
-            {self._format_list(wpr_data.get('Completed Tasks', []))}
-
-            Pending Tasks:
-            {self._format_list(wpr_data.get('Pending Tasks', []))}
-
-            Dropped Tasks:
-            {self._format_list(wpr_data.get('Dropped Tasks', []))}
-
-            PROJECTS:
-            {self._format_projects(wpr_data.get('Projects', []))}
-
-            PRODUCTIVITY:
-            Rating: {wpr_data.get('Productivity Rating', 'Not specified')}
-            Details: {wpr_data.get('Productivity Details', 'Not provided')}
-            Most Productive Time: {wpr_data.get('Productive Time', 'Not specified')}
-            Preferred Work Location: {wpr_data.get('Productive Place', 'Not specified')}
-
-            PEER EVALUATIONS:
-            {self._format_peer_evaluations(wpr_data.get('Peer_Evaluations', {}))}
-
-            Please provide a comprehensive HR analysis including:
-            1. Performance assessment
-            2. Productivity trends
-            3. Team collaboration evaluation
-            4. Growth opportunities
-            5. Risk factors
-            6. Recommendations for improvement
-            7. Wellness indicators
-            8. Skill development needs
-            """
-            
-            logging.info(f"HR analysis prompt prepared for {wpr_data['Name']}")
-            return prompt
-
-        except Exception as e:
-            logging.error(f"Error preparing HR analysis prompt: {str(e)}")
-            raise
 
     def _format_list(self, items: List[str]) -> str:
         """Format a list of items into a string"""
@@ -391,15 +403,43 @@ class AIHRAnalyzer:
             logging.error(f"Error formatting projects: {str(e)}")
             return "Error formatting projects"
 
-    def _format_peer_evaluations(self, evaluations: Dict[str, Any]) -> str:
-        """Format peer evaluations into a string"""
-        if not evaluations:
-            return "No peer evaluations provided"
-        return "\n".join(
-            f"- {peer}: Rating {eval_data.get('Rating', 'N/A')}, "
-            f"Comments: {eval_data.get('Comments', 'None')}"
-            for peer, eval_data in evaluations.items()
-        )
+    def _prepare_hr_analysis_prompt(self, wpr_data: Dict[str, Any]) -> str:
+        """Prepare the prompt for HR analysis"""
+        try:
+            # Format the WPR data into a structured prompt
+            prompt = f"""
+            Please analyze this Weekly Productivity Report for {wpr_data.get('Name', 'Unknown')} (Team: {wpr_data.get('Team', 'Unknown')}) 
+            for Week {wpr_data.get('Week Number', 'N/A')}, {wpr_data.get('Year', 'N/A')}.
+
+            TASKS:
+            Completed Tasks:
+            {self._format_list(wpr_data.get('Completed Tasks', []))}
+
+            Pending Tasks:
+            {self._format_list(wpr_data.get('Pending Tasks', []))}
+
+            Dropped Tasks:
+            {self._format_list(wpr_data.get('Dropped Tasks', []))}
+
+            PROJECTS:
+            {self._format_projects(wpr_data.get('Projects', []))}
+
+            PRODUCTIVITY:
+            Rating: {wpr_data.get('Productivity Rating', 'Not specified')}
+            Details: {wpr_data.get('Productivity Details', 'Not provided')}
+            Most Productive Time: {wpr_data.get('Productive Time', 'Not specified')}
+            Preferred Work Location: {wpr_data.get('Productive Place', 'Not specified')}
+
+            PEER EVALUATIONS:
+            {self._format_peer_evaluations(wpr_data.get('Peer_Evaluations', {}))}
+            """
+            
+            logging.info(f"HR analysis prompt prepared for {wpr_data.get('Name', 'Unknown')}")
+            return prompt
+
+        except Exception as e:
+            logging.error(f"Error preparing HR analysis prompt: {str(e)}")
+            raise
 
     def _retry_ai_request(self, prompt: str, max_retries: int = 3, timeout: int = 30) -> Any:
         """Retry AI request with exponential backoff"""
