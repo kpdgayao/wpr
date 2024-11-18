@@ -291,15 +291,18 @@ class WPRApp:
                 st.warning("Please select a productivity rating.")
                 return None
             
+            # Get actual name without team info
+            actual_name = st.session_state.selected_name.split(" (")[0]
+
             # Peer Evaluation Section
-            team = self.config.get_team_for_member(st.session_state.selected_name)
+            team = self.config.get_team_for_member(actual_name)  # Use actual_name here
             if not team:
-                st.error("Team not found for selected user.")
+                st.error(f"Team not found for user: {actual_name}")
                 return None
                 
             teammates = [
                 member for member in self.config.teams[team] 
-                if member != st.session_state.selected_name
+                if member != actual_name  # Compare with actual_name
             ]
             
             peer_ratings = self.ui.display_peer_evaluation_section(
@@ -329,7 +332,7 @@ class WPRApp:
                 
                 # Create and return form data
                 form_data = {
-                    "Name": st.session_state.selected_name,
+                    "Name": actual_name,  # Use actual_name
                     "Team": team,
                     "Week Number": st.session_state.week_number,
                     "Year": datetime.now().year,
