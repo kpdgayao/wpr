@@ -222,3 +222,68 @@ class DatabaseHandler:
         except Exception as e:
             logging.error(f"Error getting HR analysis history: {str(e)}")
             return []
+
+    def update_data(self, data: Dict[str, Any], record_id: int) -> bool:
+        """Update existing WPR data"""
+        try:
+            # Update timestamp
+            data['created_at'] = datetime.now().isoformat()
+            
+            # Calculate number of tasks
+            data['Number of Completed Tasks'] = len(data.get('Completed Tasks', []))
+            data['Number of Pending Tasks'] = len(data.get('Pending Tasks', []))
+            data['Number of Dropped Tasks'] = len(data.get('Dropped Tasks', []))
+            
+            # Convert lists to JSONB format
+            json_fields = [
+                'Completed Tasks', 'Pending Tasks', 'Dropped Tasks',
+                'Productivity Suggestions', 'Projects', 'Peer_Evaluations'
+            ]
+            
+            for field in json_fields:
+                if field in data:
+                    data[field] = json.dumps(data[field])
+            
+            logging.info(f"Updating data for {data.get('Name')}, Week {data.get('Week Number')}")
+            result = self.client.table(self.table_name)\
+                .update(data)\
+                .eq('id', record_id)\
+                .execute()
+            logging.info(f"Data updated successfully: {result}")
+            return True
+        except Exception as e:
+            logging.error(f"Error updating data: {str(e)}")
+            if hasattr(e, '__dict__'):
+                logging.error(f"Detailed error: {e.__dict__}")
+            return False
+
+    def get_submission_by_id(self, record_id: int) -> Dict[str, Any]:
+        """Get specific submission by ID"""
+        try:
+            result = self.client.table(self.table_name)\
+                .select("*")\
+                .eq("id", record_id)\
+                .execute()
+            
+            if not result.data:
+                return {}
+                
+            # Convert JSON strings back to Python objects
+            data = result.data[0]
+            json_fields = [
+                'Completed Tasks', 'Pending Tasks', 'Dropped Tasks',
+                'Productivity Suggestions', 'Projects', 'Peer_Evaluations'
+            ]
+            
+            for field in json_fields:
+                if field in data and isinstance(data[field], str):
+                    try:
+                        data[field] = json.loads(data[field])
+                    except json.JSONDecodeError:
+                        data[field] = []
+            
+            return data
+        except Exception as e:
+            logging.error(f"Error getting submission: {str(e)}")
+            return {}  
+    

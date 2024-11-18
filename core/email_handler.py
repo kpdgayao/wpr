@@ -16,10 +16,11 @@ class EmailHandler:
             logging.error(f"Failed to initialize email handler: {str(e)}")
             raise
 
-    def send_email(self, to_email: str, to_name: str, subject: str, 
-                  html_content: str) -> Dict[str, Any]:
+    def send_email(self, to_email: str, to_name: str, subject: str, html_content: str) -> Dict[str, Any]:
         """Send email using Mailjet"""
         try:
+            logging.info(f"Preparing to send email to {to_email}")
+            
             data = {
                 'Messages': [{
                     "From": {
@@ -35,11 +36,91 @@ class EmailHandler:
                 }]
             }
             
+            # Log email attempt
+            logging.info(f"Sending email to {to_email} with subject: {subject}")
+            
+            # Send email with timeout
             result = self.client.send.create(data=data)
+            
+            # Validate response
+            if result.status_code not in [200, 201]:
+                raise ValueError(f"Email API returned status code: {result.status_code}")
+                
             logging.info(f"Email sent successfully to {to_email}")
             return result
         except Exception as e:
-            logging.error(f"Failed to send email: {str(e)}")
+            error_msg = f"Failed to send email to {to_email}: {str(e)}"
+            logging.error(error_msg)
+            if hasattr(e, '__dict__'):
+                logging.error(f"Detailed error: {e.__dict__}")
+            raise
+
+    def format_hr_analysis_email(self, name: str, week_number: int, hr_analysis: Dict[str, Any]) -> str:
+        """Format WPR email content with HR analysis"""
+        try:
+            # Validate hr_analysis structure
+            required_fields = ['performance_metrics', 'growth_recommendations']
+            for field in required_fields:
+                if field not in hr_analysis:
+                    raise ValueError(f"Missing required field in HR analysis: {field}")
+            
+            current_date = datetime.now().strftime("%B %d, %Y")
+            
+            # Get metrics with safe fallbacks
+            performance_metrics = hr_analysis.get('performance_metrics', {})
+            growth_recommendations = hr_analysis.get('growth_recommendations', {})
+            
+            productivity_score = performance_metrics.get('productivity_score', 'N/A')
+            task_completion = performance_metrics.get('task_completion_rate', 'N/A')
+            project_progress = performance_metrics.get('project_progress', 'N/A')
+            
+            immediate_actions = growth_recommendations.get('immediate_actions', [])
+            
+            email_content = f"""
+            <html>
+                <head>
+                    <style>
+                        body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+                        .container {{ max-width: 800px; margin: 0 auto; padding: 20px; }}
+                        .header {{ color: #2E86C1; margin-bottom: 20px; }}
+                        .section {{ margin: 20px 0; padding: 15px; background-color: #f8f9fa; border-radius: 5px; }}
+                        .footer {{ margin-top: 30px; color: #666; font-size: 0.9em; }}
+                    </style>
+                </head>
+                <body>
+                    <div class="container">
+                        <div class="header">
+                            <h1>Weekly Performance Analysis</h1>
+                            <h2>Week {week_number} - {current_date}</h2>
+                        </div>
+                        
+                        <div class="section">
+                            <p>Dear {name},</p>
+                            <p>Here is your weekly performance analysis summary.</p>
+                            
+                            <h3>Performance Metrics</h3>
+                            <ul>
+                                <li>Productivity Score: {productivity_score}</li>
+                                <li>Task Completion Rate: {task_completion}%</li>
+                                <li>Project Progress: {project_progress}%</li>
+                            </ul>
+                            
+                            <h3>Growth Recommendations</h3>
+                            <ul>
+                            {"".join([f"<li>{rec}</li>" for rec in immediate_actions])}
+                            </ul>
+                        </div>
+                        
+                        <div class="footer">
+                            <p>Best regards,<br>IOL Inc.</p>
+                        </div>
+                    </div>
+                </body>
+            </html>
+            """
+            return email_content
+        except Exception as e:
+            logging.error(f"Error formatting email content: {str(e)}")
             raise
 
     def format_wpr_email(self, name: str, week_number: int, 
@@ -89,35 +170,44 @@ class EmailHandler:
 
     def _format_hr_analysis_section(self, hr_analysis: Dict[str, Any]) -> str:
         """Format HR analysis section for email"""
-        return f"""
-            <div class="section">
-                <h2 style="color: #2E86C1;">HR Analysis Summary</h2>
-                
-                <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 10px 0;">
-                    <h3 style="color: #2471A3;">Performance Metrics</h3>
-                    <ul style="list-style-type: none; padding-left: 0;">
-                        <li>Productivity Score: {hr_analysis['performance_metrics']['productivity_score']}/4</li>
-                        <li>Task Completion Rate: {hr_analysis['performance_metrics']['task_completion_rate']}%</li>
-                        <li>Project Progress: {hr_analysis['performance_metrics']['project_progress']}%</li>
-                        <li>Collaboration Score: {hr_analysis['performance_metrics']['collaboration_score']}/4</li>
-                    </ul>
+        try:
+            # Extract metrics with safe fallbacks
+            metrics = hr_analysis.get('performance_metrics', {})
+            growth = hr_analysis.get('growth_recommendations', {})
+            wellness = hr_analysis.get('wellness_indicators', {})
+            
+            return f"""
+                <div class="section">
+                    <h2 style="color: #2E86C1;">HR Analysis Summary</h2>
+                    
+                    <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 10px 0;">
+                        <h3 style="color: #2471A3;">Performance Metrics</h3>
+                        <ul style="list-style-type: none; padding-left: 0;">
+                            <li>Productivity Score: {metrics.get('productivity_score', 'N/A')}/4</li>
+                            <li>Task Completion Rate: {metrics.get('task_completion_rate', 'N/A')}%</li>
+                            <li>Project Progress: {metrics.get('project_progress', 'N/A')}%</li>
+                            <li>Collaboration Score: {metrics.get('collaboration_score', 'N/A')}/4</li>
+                        </ul>
+                    </div>
+                    
+                    <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 10px 0;">
+                        <h3 style="color: #2471A3;">Key Recommendations</h3>
+                        {self._format_list(growth.get('immediate_actions', []), True)}
+                    </div>
+                    
+                    <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 10px 0;">
+                        <h3 style="color: #2471A3;">Wellness Status</h3>
+                        <ul style="list-style-type: none; padding-left: 0;">
+                            <li>Work-Life Balance: {wellness.get('work_life_balance', 'N/A')}</li>
+                            <li>Workload: {wellness.get('workload_assessment', 'N/A')}</li>
+                            <li>Engagement: {wellness.get('engagement_level', 'N/A')}</li>
+                        </ul>
+                    </div>
                 </div>
-                
-                <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 10px 0;">
-                    <h3 style="color: #2471A3;">Key Recommendations</h3>
-                    {self._format_list(hr_analysis['growth_recommendations']['immediate_actions'], True)}
-                </div>
-                
-                <div style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 10px 0;">
-                    <h3 style="color: #2471A3;">Wellness Status</h3>
-                    <ul style="list-style-type: none; padding-left: 0;">
-                        <li>Work-Life Balance: {hr_analysis['wellness_indicators']['work_life_balance']}</li>
-                        <li>Workload: {hr_analysis['wellness_indicators']['workload_assessment']}</li>
-                        <li>Engagement: {hr_analysis['wellness_indicators']['engagement_level']}</li>
-                    </ul>
-                </div>
-            </div>
-        """
+            """
+        except Exception as e:
+            logging.error(f"Error formatting HR analysis section: {str(e)}")
+            raise
 
     def _format_list(self, items: List[str], as_recommendations: bool = False) -> str:
         """Format list items for email"""
