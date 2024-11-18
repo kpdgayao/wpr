@@ -4,6 +4,8 @@ from typing import List, Dict, Any
 import anthropic
 from datetime import datetime
 import time
+import platform
+import html
 
 # At the top of the file, after imports
 logging.basicConfig(
@@ -28,6 +30,9 @@ class AIHRAnalyzer:
                 if field not in wpr_data:
                     raise ValueError(f"Missing required field: {field}")
 
+            # Ensure all data fields are in the correct format
+            wpr_data = self._sanitize_data(wpr_data)
+
             # Log analysis start
             logging.info(f"Starting HR analysis for {wpr_data['Name']} - Week {wpr_data['Week Number']}")
             
@@ -36,14 +41,23 @@ class AIHRAnalyzer:
             
             # Get AI response
             response = self._retry_ai_request(hr_analysis_prompt)
-
-            # Parse and structure the AI response
+            
+            # Validate AI response
+            if not response or not response.content:
+                raise ValueError("Empty response from AI service")
+                
             ai_response = response.content[0].text
+            
+            # Validate response format
+            if not ai_response or len(ai_response) < 100:
+                raise ValueError("Invalid or too short AI response")
+                
+            ai_response = self._validate_html_response(ai_response)
             
             # Create structured analysis result
             analysis_result = {
                 'performance_metrics': {
-                    'productivity_score': float(wpr_data.get('Productivity Rating', '1').split()[0]),
+                    'productivity_score': self._parse_productivity_rating(wpr_data.get('Productivity Rating', '1')),
                     'task_completion_rate': self._calculate_task_completion_rate(wpr_data),
                     'project_progress': self._calculate_project_progress(wpr_data),
                     'collaboration_score': self._calculate_collaboration_score(wpr_data)
@@ -74,12 +88,31 @@ class AIHRAnalyzer:
                     'retention_risk': 'Low',
                     'performance_trend': 'Stable'
                 },
+                'completion_metrics': {
+                'tasks_analyzed': len(wpr_data.get('Completed Tasks', [])) + 
+                                len(wpr_data.get('Pending Tasks', [])) + 
+                                len(wpr_data.get('Dropped Tasks', [])),
+                'projects_analyzed': len(wpr_data.get('Projects', [])),
+                'peer_evaluations_count': len(wpr_data.get('Peer_Evaluations', {})),
+                'analysis_completion': 100.0  # Percentage of analysis completed
+                },
                 'analysis_timestamp': datetime.now().isoformat(),
                 'employee_name': wpr_data['Name'],
                 'week_number': wpr_data['Week Number'],
                 'year': wpr_data['Year'],
-                'team': wpr_data['Team']
+                'team': wpr_data['Team'],
+                'ai_analysis': ai_response,  # Include the AI analysis response
+                'metadata': {
+                    'version': '1.0',
+                    'model': "claude-3-5-sonnet-20241022",
+                    'analysis_timestamp': datetime.now().isoformat(),
+                    'system_info': {
+                        'python_version': platform.python_version(),
+                        'anthropic_version': anthropic.__version__
+                    }
+                }
             }
+            
 
             logging.info(f"HR analysis completed successfully for {wpr_data['Name']}")
             return analysis_result
@@ -87,6 +120,69 @@ class AIHRAnalyzer:
         except Exception as e:
             logging.error(f"Error generating HR analysis: {str(e)}")
             raise
+
+    def _sanitize_data(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Sanitize and validate input data"""
+        try:
+            sanitized = data.copy()
+            
+            # Ensure lists are actually lists
+            list_fields = ['Completed Tasks', 'Pending Tasks', 'Dropped Tasks']
+            for field in list_fields:
+                if field in sanitized:
+                    if isinstance(sanitized[field], str):
+                        sanitized[field] = [task.strip() for task in sanitized[field].split('\n') if task.strip()]
+                    elif not isinstance(sanitized[field], list):
+                        sanitized[field] = []
+
+            # Ensure Projects is properly formatted
+            if 'Projects' in sanitized:
+                if isinstance(sanitized['Projects'], str):
+                    sanitized['Projects'] = self._parse_projects_string(sanitized['Projects'])
+                elif not isinstance(sanitized['Projects'], list):
+                    sanitized['Projects'] = []
+
+            # Ensure Peer_Evaluations is a dictionary
+            if 'Peer_Evaluations' in sanitized:
+                if not isinstance(sanitized['Peer_Evaluations'], dict):
+                    sanitized['Peer_Evaluations'] = {}
+
+            return sanitized
+        except Exception as e:
+            logging.error(f"Error sanitizing data: {str(e)}")
+            raise
+
+    def _parse_projects_string(self, projects_str: str) -> List[Dict[str, Any]]:
+        """Parse projects string into list of dictionaries"""
+        try:
+            projects = []
+            lines = [line.strip() for line in projects_str.split('\n') if line.strip()]
+            for line in lines:
+                if ',' in line:
+                    name, completion = line.split(',', 1)
+                    completion = completion.strip().replace('%', '')
+                    try:
+                        completion = float(completion)
+                    except ValueError:
+                        completion = 0
+                    projects.append({
+                        'name': name.strip(),
+                        'completion': completion
+                    })
+            return projects
+        except Exception as e:
+            logging.error(f"Error parsing projects string: {str(e)}")
+            return []
+
+    def _parse_productivity_rating(self, rating: str) -> float:
+        """Parse productivity rating string to float"""
+        try:
+            if isinstance(rating, (int, float)):
+                return float(rating)
+            rating_str = rating.split()[0]
+            return float(rating_str)
+        except (ValueError, IndexError):
+            return 1.0
 
     def _calculate_task_completion_rate(self, data: Dict[str, Any]) -> float:
         """Calculate task completion rate"""
@@ -262,10 +358,38 @@ class AIHRAnalyzer:
 
     def _format_projects(self, projects: List[Dict[str, Any]]) -> str:
         """Format projects into a string"""
-        if not projects:
-            return "No projects reported"
-        return "\n".join(f"- {p.get('name', 'Unnamed')}: {p.get('completion', 0)}% complete" 
-                        for p in projects)
+        try:
+            # If projects is a string, try to parse it into a list of dictionaries
+            if isinstance(projects, str):
+                # Split the string by newlines and parse each line
+                project_lines = [p.strip() for p in projects.split('\n') if p.strip()]
+                parsed_projects = []
+                for line in project_lines:
+                    if ',' in line:
+                        name, completion = line.split(',', 1)
+                        completion = completion.strip().replace('%', '')
+                        try:
+                            completion = float(completion)
+                        except ValueError:
+                            completion = 0
+                        parsed_projects.append({
+                            'name': name.strip(),
+                            'completion': completion
+                        })
+                projects = parsed_projects
+
+            # If projects is empty or invalid
+            if not projects:
+                return "No projects reported"
+
+            # Format the projects
+            return "\n".join(
+                f"- {p.get('name', 'Unnamed')}: {p.get('completion', 0)}% complete" 
+                for p in projects
+            )
+        except Exception as e:
+            logging.error(f"Error formatting projects: {str(e)}")
+            return "Error formatting projects"
 
     def _format_peer_evaluations(self, evaluations: Dict[str, Any]) -> str:
         """Format peer evaluations into a string"""
@@ -277,22 +401,125 @@ class AIHRAnalyzer:
             for peer, eval_data in evaluations.items()
         )
 
-    def _retry_ai_request(self, prompt: str, max_retries: int = 3) -> Any:
+    def _retry_ai_request(self, prompt: str, max_retries: int = 3, timeout: int = 30) -> Any:
         """Retry AI request with exponential backoff"""
+        system_prompt = """You are an empathetic HR productivity expert and career coach for IOL Inc. 
+        Your role is to analyze Weekly Productivity Reports and provide detailed, constructive feedback.
+
+        Please ensure your analysis:
+        1. Is professional yet supportive in tone
+        2. Provides specific, actionable recommendations
+        3. Balances praise with constructive feedback
+        4. Considers both individual and team dynamics
+        5. Focuses on growth and development opportunities
+        6. Addresses both technical and soft skills
+        7. Includes wellness and work-life balance considerations
+
+        Format your response using the following HTML structure:
+        <div style="font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px;">
+            <h2 style="color: #2E86C1; border-bottom: 2px solid #2E86C1; padding-bottom: 10px;">Weekly Performance Analysis</h2>
+            
+            <div style="background-color: #EBF5FB; padding: 15px; border-radius: 5px; margin: 15px 0;">
+                <h3 style="color: #2471A3; margin-top: 0;">Achievement Highlights</h3>
+                [Content]
+            </div>
+            
+            <div style="background-color: #F4F6F7; padding: 15px; border-radius: 5px; margin: 15px 0;">
+                <h3 style="color: #2471A3; margin-top: 0;">Performance Metrics</h3>
+                [Content]
+            </div>
+            
+            <div style="background-color: #EBF5FB; padding: 15px; border-radius: 5px; margin: 15px 0;">
+                <h3 style="color: #2471A3; margin-top: 0;">Growth Opportunities</h3>
+                [Content]
+            </div>
+            
+            <div style="background-color: #F4F6F7; padding: 15px; border-radius: 5px; margin: 15px 0;">
+                <h3 style="color: #2471A3; margin-top: 0;">Action Plan</h3>
+                [Content]
+            </div>
+            
+            <div style="background-color: #EBF5FB; padding: 15px; border-radius: 5px; margin: 15px 0;">
+                <h3 style="color: #2471A3; margin-top: 0;">Team Collaboration</h3>
+                [Content]
+            </div>
+            
+            <div style="background-color: #F4F6F7; padding: 15px; border-radius: 5px; margin: 15px 0;">
+                <h3 style="color: #2471A3; margin-top: 0;">Wellness Check</h3>
+                [Content]
+            </div>
+            
+            <div style="border-top: 2px solid #2E86C1; margin-top: 20px; padding-top: 10px; font-style: italic; color: #2E86C1;">
+                Generated by IOL HR Analysis System
+            </div>
+        </div>"""
+
         for attempt in range(max_retries):
             try:
-                response = self.client.messages.create(
-                    model="claude-3-sonnet-20240229",
-                    max_tokens=4000,
-                    messages=[{
+                # Create a dictionary of request parameters
+                request_params = {
+                    "model": "claude-3-5-sonnet-20241022",
+                    "max_tokens": 4000,
+                    "system": system_prompt,
+                    "messages": [{
                         "role": "user",
                         "content": prompt
                     }]
-                )
+                }
+
+                # Add timeout if supported by the client
+                try:
+                    response = self.client.messages.create(**request_params, timeout=timeout)
+                except TypeError:
+                    # If timeout is not supported, fall back to default behavior
+                    response = self.client.messages.create(**request_params)
+
                 return response
+                
             except Exception as e:
                 if attempt == max_retries - 1:
                     logging.error(f"Failed to get AI response after {max_retries} attempts: {str(e)}")
                     raise
                 logging.warning(f"Attempt {attempt + 1} failed, retrying...")
-                time.sleep(2 ** attempt)  # Exponential backoff
+                time.sleep(2 ** attempt)
+
+    def _validate_html_response(self, response: str) -> str:
+        """Validate and clean HTML response"""
+        try:
+            if not response:
+                return "<div>No analysis generated</div>"
+            
+            # Sanitize HTML content
+            response = self._sanitize_html_content(response)
+                
+            # Ensure response has proper div wrapper
+            if not response.strip().startswith('<div'):
+                response = f'<div style="font-family: Arial, sans-serif;">{response}</div>'
+                
+            # Ensure all sections are present
+            required_sections = ['Achievement Highlights', 'Performance Metrics', 
+                            'Growth Opportunities', 'Action Plan', 
+                            'Team Collaboration', 'Wellness Check']
+                            
+            for section in required_sections:
+                if section not in response:
+                    logging.warning(f"Missing section in AI response: {section}")
+                    
+            return response
+        except Exception as e:
+            logging.error(f"Error validating HTML response: {str(e)}")
+            return "<div>Error in analysis generation</div>"
+        
+    def _sanitize_html_content(self, content: str) -> str:
+        """Sanitize HTML content to prevent XSS"""
+        try:
+            # Basic HTML sanitization
+            content = content.replace('<script>', '&lt;script&gt;')
+            content = content.replace('</script>', '&lt;/script&gt;')
+            content = content.replace('javascript:', '')
+            content = content.replace('onerror=', '')
+            content = content.replace('onclick=', '')
+            return content
+        except Exception as e:
+            logging.error(f"Error sanitizing HTML content: {str(e)}")
+            return ""
