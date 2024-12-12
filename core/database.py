@@ -97,6 +97,8 @@ class DatabaseHandler:
             result = self.client.table(self.table_name)\
                 .select("*")\
                 .eq("Name", actual_name)\
+                .order('Year', desc=True)\
+                .order('Week Number', desc=True)\
                 .order('created_at', desc=True)\
                 .limit(limit)\
                 .execute()
