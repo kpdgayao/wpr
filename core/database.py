@@ -102,29 +102,36 @@ class DatabaseHandler:
             result = self.client.table(self.table_name)\
                 .select("*")\
                 .eq("Name", actual_name)\
-                .order('Year', desc=True)\
-                .order('Week Number', desc=True)\
+                .order("Year", desc=True)\
+                .order("Week Number", desc=True)\
                 .execute()
             
             logging.info(f"Found {len(result.data)} reports for user {actual_name}")
             
-            # Convert JSONB strings back to Python objects
-            data = result.data
-            for row in data:
-                for field in ['Completed Tasks', 'Pending Tasks', 'Dropped Tasks',
-                            'Productivity Suggestions', 'Projects', 'Peer_Evaluations']:
-                    if field in row and isinstance(row[field], str):
-                        try:
-                            row[field] = json.loads(row[field])
-                        except json.JSONDecodeError:
-                            logging.warning(f"Failed to parse JSON for {field} in row {row.get('id')}")
-                            row[field] = []
+            # Convert to DataFrame
+            df = pd.DataFrame(result.data)
             
-            # Convert to DataFrame and sort by Year and Week Number
-            df = pd.DataFrame(data)
             if not df.empty:
-                df = df.sort_values(by=['Year', 'Week Number'], ascending=[False, False])
+                # Ensure proper data types
+                df['Year'] = pd.to_numeric(df['Year'], errors='coerce')
+                df['Week Number'] = pd.to_numeric(df['Week Number'], errors='coerce')
+                
+                # Sort by Year and Week Number
+                df = df.sort_values(
+                    by=['Year', 'Week Number'], 
+                    ascending=[False, False]
+                ).reset_index(drop=True)
+                
+                # Convert JSONB strings back to Python objects
+                json_fields = ['Completed Tasks', 'Pending Tasks', 'Dropped Tasks',
+                            'Productivity Suggestions', 'Projects', 'Peer_Evaluations']
+                
+                for field in json_fields:
+                    if field in df.columns:
+                        df[field] = df[field].apply(lambda x: 
+                            json.loads(x) if isinstance(x, str) else (x or []))
             
+            logging.info(f"Processed {len(df)} reports for {actual_name}")
             return df
                 
         except Exception as e:
