@@ -116,6 +116,17 @@ class WPRApp:
             if not st.session_state.edit_mode:
                 self._display_week_selector()
             
+            # Check for existing submission BEFORE displaying form
+            if not st.session_state.edit_mode:
+                existing = self.db.check_existing_submission(
+                    st.session_state.selected_name.split(" (")[0],  # Get actual name
+                    st.session_state.week_number,
+                    datetime.now().year
+                )
+                if existing:
+                    st.warning(f"You have already submitted a report for Week {st.session_state.week_number}. You can edit it from the list above.")
+                    return
+            
             # Display user history
             user_data = self.db.get_user_reports(st.session_state.selected_name)
             if not user_data.empty:
@@ -134,18 +145,7 @@ class WPRApp:
                         if st.button("👁️ View", key=f"view_{row['id']}"):
                             self._display_submission_details(row)
             
-            # Check for existing submission only if not in edit mode
-            if not st.session_state.edit_mode:
-                existing = self.db.check_existing_submission(
-                    st.session_state.selected_name,
-                    st.session_state.week_number,
-                    datetime.now().year
-                )
-                if existing:
-                    st.warning(f"You have already submitted a report for Week {st.session_state.week_number}. You can edit it from the list above.")
-                    return
-            
-            # Get form inputs
+            # Get form inputs only if no existing submission
             form_data = self._collect_form_data()
             
             # Handle submission

@@ -12,8 +12,14 @@ class DatabaseHandler:
         """Initialize database connection"""
         try:
             self.client = create_client(supabase_url, supabase_key)
-            self.table_name = 'wpr_data'  # Updated table name
+            self.table_name = 'wpr_data'
             self.hr_table_name = 'hr_analysis'
+            
+            # Add unique constraint on Name, Week Number, and Year if it doesn't exist
+            # Note: This would need to be done at the Supabase database level
+            # CREATE UNIQUE INDEX IF NOT EXISTS unique_weekly_submission 
+            # ON wpr_data (Name, "Week Number", Year);
+            
             logging.info("Database connection initialized successfully")
         except Exception as e:
             logging.error(f"Failed to initialize database connection: {str(e)}")
@@ -22,6 +28,16 @@ class DatabaseHandler:
     def save_data(self, data: Dict[str, Any]) -> bool:
         """Save WPR data to database"""
         try:
+            # Check again before saving
+            existing = self.check_existing_submission(
+                data['Name'],
+                data['Week Number'],
+                data['Year']
+            )
+            if existing:
+                logging.warning(f"Duplicate submission detected for {data['Name']}, Week {data['Week Number']}")
+                return False
+
             # Add timestamp to data
             data['created_at'] = datetime.now().isoformat()
             
