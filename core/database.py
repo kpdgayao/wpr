@@ -1,6 +1,6 @@
 # core/database.py
 import logging
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Tuple, Optional
 from supabase import create_client
 import pandas as pd
 from datetime import datetime
@@ -25,20 +25,44 @@ class DatabaseHandler:
             logging.error(f"Failed to initialize database connection: {str(e)}")
             raise
 
+    def check_and_handle_duplicates(self, name: str, week_number: int, year: int) -> Tuple[bool, int | None]:
+        """
+        Check for duplicates and return (has_duplicate, duplicate_id)
+        """
+        try:
+            result = self.client.table(self.table_name)\
+                .select("*")\
+                .eq("Name", name)\
+                .eq("Week Number", week_number)\
+                .eq("Year", year)\
+                .execute()
+            
+            if result.data:
+                # Return True and the ID of the existing entry
+                return True, result.data[0]['id']
+            return False, None
+        except Exception as e:
+            logging.error(f"Error checking duplicates: {str(e)}")
+            return False, None
+
     def save_data(self, data: Dict[str, Any]) -> bool:
         try:
             # Extract actual name without team info if present
             if 'Name' in data:
                 data['Name'] = data['Name'].split(" (")[0] if " (" in data['Name'] else data['Name']
             
-            # Check for existing submission AFTER name is processed
-            existing = self.check_existing_submission(
+            # Check for duplicates
+            has_duplicate, duplicate_id = self.check_and_handle_duplicates(
                 data['Name'],
                 data['Week Number'],
                 data['Year']
             )
-            if existing:
-                logging.warning(f"Duplicate submission detected for {data['Name']}, Week {data['Week Number']}")
+            
+            if has_duplicate:
+                st.error(f"""
+                    A submission already exists for Week {data['Week Number']}, {data['Year']}. 
+                    Please edit the existing submission instead.
+                """)
                 return False
 
             # Add timestamp to data
@@ -69,6 +93,54 @@ class DatabaseHandler:
                 logging.error(f"Detailed error: {e.__dict__}")
             return False
 
+    def get_user_reports(self, user_name: str) -> pd.DataFrame:
+        """Get reports for a specific user, ordered by most recent first"""
+        try:
+            # Extract actual name without team info
+            actual_name = user_name.split(" (")[0] if " (" in user_name else user_name
+            
+            logging.info(f"Fetching reports for user: {actual_name}")
+            
+            # First get all submissions for the user
+            result = self.client.table(self.table_name)\
+                .select("*")\
+                .eq("Name", actual_name)\
+                .execute()
+            
+            # Convert to DataFrame
+            df = pd.DataFrame(result.data)
+            
+            if not df.empty:
+                # Convert Year and Week Number to numeric
+                df['Year'] = pd.to_numeric(df['Year'])
+                df['Week Number'] = pd.to_numeric(df['Week Number'])
+                
+                # Sort by Year and Week Number
+                df = df.sort_values(
+                    by=['Year', 'Week Number'],
+                    ascending=[False, False]
+                ).reset_index(drop=True)
+                
+                # Process JSON fields
+                json_fields = ['Completed Tasks', 'Pending Tasks', 'Dropped Tasks',
+                            'Productivity Suggestions', 'Projects', 'Peer_Evaluations']
+                
+                for field in json_fields:
+                    if field in df.columns:
+                        df[field] = df[field].apply(lambda x: 
+                            json.loads(x) if isinstance(x, str) else (x or []))
+                
+                # Log the sorted data for debugging
+                logging.info(f"Found {len(df)} submissions for {actual_name}")
+                for idx, row in df.iterrows():
+                    logging.info(f"Row {idx}: Year={row['Year']}, Week={row['Week Number']}")
+            
+            return df
+                
+        except Exception as e:
+            logging.error(f"Error getting user reports: {str(e)}")
+            return pd.DataFrame()
+
     def load_data(self) -> pd.DataFrame:
         """Load all WPR data"""
         try:
@@ -88,56 +160,6 @@ class DatabaseHandler:
             return pd.DataFrame(data)
         except Exception as e:
             logging.error(f"Error loading data: {str(e)}")
-            return pd.DataFrame()
-
-    def get_user_reports(self, user_name: str) -> pd.DataFrame:
-        """Get reports for a specific user, ordered by most recent first"""
-        try:
-            # Extract actual name without team info
-            actual_name = user_name.split(" (")[0] if " (" in user_name else user_name
-            
-            logging.info(f"Fetching reports for user: {actual_name}")
-            
-            # Build query with explicit ordering
-            result = self.client.table(self.table_name)\
-                .select("*")\
-                .eq("Name", actual_name)\
-                .order('"Year"', desc=True)\
-                .order('"Week Number"', desc=True)\
-                .execute()
-            
-            # Convert to DataFrame
-            df = pd.DataFrame(result.data)
-            
-            if not df.empty:
-                # Convert columns to appropriate types
-                df['Year'] = pd.to_numeric(df['Year'])
-                df['Week Number'] = pd.to_numeric(df['Week Number'])
-                
-                # Double-check sorting
-                df = df.sort_values(
-                    by=['Year', 'Week Number'],
-                    ascending=[False, False]
-                ).reset_index(drop=True)
-                
-                # Process JSON fields
-                json_fields = ['Completed Tasks', 'Pending Tasks', 'Dropped Tasks',
-                            'Productivity Suggestions', 'Projects', 'Peer_Evaluations']
-                
-                for field in json_fields:
-                    if field in df.columns:
-                        df[field] = df[field].apply(lambda x: 
-                            json.loads(x) if isinstance(x, str) else (x or []))
-                
-                # Log the sorted data for debugging
-                logging.info("Sorted submissions order:")
-                for _, row in df.iterrows():
-                    logging.info(f"Year: {row['Year']}, Week: {row['Week Number']}, ID: {row['id']}")
-            
-            return df
-                
-        except Exception as e:
-            logging.error(f"Error getting user reports: {str(e)}")
             return pd.DataFrame()
 
     def check_existing_submission(self, name: str, week_number: int, year: int) -> bool:
