@@ -98,23 +98,25 @@ class DatabaseHandler:
             
             logging.info(f"Fetching reports for user: {actual_name}")
             
-            # Build query to get all submissions
+            # Build query with explicit ordering
             result = self.client.table(self.table_name)\
                 .select("*")\
                 .eq("Name", actual_name)\
+                .order('"Year"', desc=True)\
+                .order('"Week Number"', desc=True)\
                 .execute()
             
             # Convert to DataFrame
             df = pd.DataFrame(result.data)
             
             if not df.empty:
-                # Convert Year and Week Number to numeric
+                # Convert columns to appropriate types
                 df['Year'] = pd.to_numeric(df['Year'])
                 df['Week Number'] = pd.to_numeric(df['Week Number'])
                 
-                # Sort by Year and Week Number in descending order
+                # Double-check sorting
                 df = df.sort_values(
-                    by=['Year', 'Week Number'], 
+                    by=['Year', 'Week Number'],
                     ascending=[False, False]
                 ).reset_index(drop=True)
                 
@@ -127,9 +129,11 @@ class DatabaseHandler:
                         df[field] = df[field].apply(lambda x: 
                             json.loads(x) if isinstance(x, str) else (x or []))
                 
-                logging.info(f"Processed {len(df)} reports for {actual_name}")
-                logging.info(f"Latest entries: {df[['Year', 'Week Number']].head().to_dict('records')}")
-                
+                # Log the sorted data for debugging
+                logging.info("Sorted submissions order:")
+                for _, row in df.iterrows():
+                    logging.info(f"Year: {row['Year']}, Week: {row['Week Number']}, ID: {row['id']}")
+            
             return df
                 
         except Exception as e:
@@ -394,4 +398,28 @@ class DatabaseHandler:
                 
         except Exception as e:
             logging.error(f"Debug week range check failed: {str(e)}")
+
+    def debug_print_submissions(self, user_name: str):
+        """Debug function to print all submissions for a user"""
+        try:
+            actual_name = user_name.split(" (")[0] if " (" in user_name else user_name
+            
+            result = self.client.table(self.table_name)\
+                .select("*")\
+                .eq("Name", actual_name)\
+                .execute()
+            
+            df = pd.DataFrame(result.data)
+            
+            if not df.empty:
+                df['Year'] = df['Year'].astype(int)
+                df['Week Number'] = df['Week Number'].astype(int)
+                df = df.sort_values(['Year', 'Week Number'], ascending=[False, False])
+                
+                logging.info("\nDEBUG - All submissions:")
+                for _, row in df.iterrows():
+                    logging.info(f"ID: {row['id']}, Year: {row['Year']}, Week: {row['Week Number']}, Created: {row['created_at']}")
+            
+        except Exception as e:
+            logging.error(f"Debug print error: {str(e)}")
     
