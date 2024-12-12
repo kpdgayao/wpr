@@ -87,21 +87,25 @@ class DatabaseHandler:
             logging.error(f"Error loading data: {str(e)}")
             return pd.DataFrame()
 
-    def get_user_reports(self, user_name: str, limit: int = 5) -> pd.DataFrame:
-        """Get recent reports for a specific user"""
+    def get_user_reports(self, user_name: str, limit: int = None) -> pd.DataFrame:
+        """Get reports for a specific user"""
         try:
             # Extract actual name without team info
             actual_name = user_name.split(" (")[0] if " (" in user_name else user_name
             
             logging.info(f"Fetching reports for user: {actual_name}")
-            result = self.client.table(self.table_name)\
+            query = self.client.table(self.table_name)\
                 .select("*")\
                 .eq("Name", actual_name)\
                 .order('Year', desc=True)\
                 .order('Week Number', desc=True)\
-                .order('created_at', desc=True)\
-                .limit(limit)\
-                .execute()
+                .order('created_at', desc=True)
+                
+            # Only apply limit if specified
+            if limit:
+                query = query.limit(limit)
+                
+            result = query.execute()
             
             # Convert JSONB strings back to Python objects
             data = result.data

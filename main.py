@@ -128,7 +128,7 @@ class WPRApp:
                     return
             
             # Display user history
-            user_data = self.db.get_user_reports(st.session_state.selected_name)
+            user_data = self.db.get_user_reports(st.session_state.selected_name)  # Remove the limit parameter
             if not user_data.empty:
                 st.markdown("### Previous Submissions")
                 for _, row in user_data.iterrows():
@@ -603,40 +603,6 @@ class WPRApp:
         except Exception as e:
             logging.error(f"Error processing submission: {str(e)}")
             return False
-
-    def _process_form_submission(self, form_data: Dict[str, Any]):
-        """Process the form submission"""
-        try:
-            user_email = form_data.pop('user_email')  # Remove email from data dict
-            
-            # Check for existing submission first
-            if self.db.check_existing_submission(
-                form_data['Name'],
-                form_data['Week Number'],
-                form_data['Year']
-            ):
-                st.error(f"A submission for Week {form_data['Week Number']} already exists.")
-                return
-            
-            with st.spinner("Processing your submission..."):
-                # Save to database
-                if not self.db.save_data(form_data):
-                    st.error("Error saving data to database.")
-                    return
-                
-                # Process submission with AI analysis
-                if not self.process_submission(form_data, user_email):
-                    st.error("Error processing submission.")
-                    return
-                
-                st.success("WPR submitted successfully! Check your email for a summary.")
-                
-                # Force a page rerun to update the display
-                st.rerun()
-                
-        except Exception as e:
-            logging.error(f"Error processing form submission: {str(e)}")
-            st.error("Error processing your submission. Please try again.")
 
     def run(self) -> None:
         """Run the WPR application"""
