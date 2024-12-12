@@ -1,243 +1,184 @@
 # ui/hr_visualizations.py
 import streamlit as st
-import plotly.graph_objects as go
-import plotly.express as px
 from typing import Dict, Any, List, Optional
-import pandas as pd
 import logging
 from datetime import datetime
 
 class HRVisualizations:
-    """Class for handling HR data visualizations"""
+    """Simplified HR dashboard visualization"""
     
     @staticmethod
     def display_hr_dashboard(hr_analysis: Dict[str, Any], historical_data: Optional[List[Dict[str, Any]]] = None):
-        """Display HR analysis dashboard"""
+        """Display simplified HR analysis dashboard"""
         try:
             if not hr_analysis:
                 st.warning("No HR analysis data available to display.")
                 return
 
-            st.markdown("## HR Analytics Dashboard")
+            st.markdown("## HR Analysis Dashboard")
 
-            # Performance Metrics
-            st.markdown("### 📊 Performance Metrics")
-            if hr_analysis.get('performance_metrics'):
-                HRVisualizations._display_performance_metrics(hr_analysis.get('performance_metrics', {}))
-            else:
-                st.info("No performance metrics available.")
+            # Performance Overview
+            st.markdown("### 📊 Performance Overview")
+            HRVisualizations._display_performance_overview(hr_analysis.get('performance_metrics', {}))
 
-            # Skills Assessment
-            st.markdown("### 🎯 Skills Assessment")
-            if hr_analysis.get('skill_assessment'):
-                HRVisualizations._display_skills_assessment(hr_analysis.get('skill_assessment', {}))
-            else:
-                st.info("No skills assessment data available.")
+            # Skills & Development
+            st.markdown("### 🎯 Skills & Development")
+            HRVisualizations._display_skills_overview(hr_analysis.get('skill_assessment', {}))
 
-            # Wellness Indicators
-            st.markdown("### 🌟 Wellness Indicators")
-            HRVisualizations._display_wellness_indicators(hr_analysis.get('wellness_indicators', {}))
-
-            # Risk Assessment
-            st.markdown("### ⚠️ Risk Assessment")
-            HRVisualizations._display_risk_assessment(hr_analysis.get('risk_factors', {}))
-
-            # Growth Recommendations
-            st.markdown("### 📈 Growth Recommendations")
+            # Recommendations
+            st.markdown("### 💡 Growth & Recommendations")
             HRVisualizations._display_recommendations(hr_analysis.get('growth_recommendations', {}))
 
-            # Historical Trends
-            if historical_data:
-                st.markdown("### 📊 Historical Trends")
-                HRVisualizations._display_historical_trends(historical_data)
+            # Wellness & Risk Factors
+            st.markdown("### 🌟 Wellness Overview")
+            col1, col2 = st.columns(2)
+            with col1:
+                HRVisualizations._display_wellness(hr_analysis.get('wellness_indicators', {}))
+            with col2:
+                HRVisualizations._display_risk_factors(hr_analysis.get('risk_factors', {}))
 
         except Exception as e:
             logging.error(f"Error displaying HR dashboard: {str(e)}")
             st.error("Error displaying HR analytics dashboard. Please try again later.")
-    
+
     @staticmethod
-    def _display_performance_metrics(metrics: Dict[str, float]):
-        """Display performance metrics section"""
+    def _display_performance_overview(metrics: Dict[str, float]):
+        """Display simplified performance metrics"""
         try:
-            timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
             col1, col2, col3, col4 = st.columns(4)
             
             with col1:
-                HRVisualizations._metric_gauge(
-                    "Productivity Score",
-                    metrics.get('productivity_score', 0),
-                    max_value=4,
-                    unique_id=f"prod_{timestamp}"
+                st.metric(
+                    "Productivity",
+                    f"{metrics.get('productivity_score', 0)}/4",
+                    help="Overall productivity rating"
                 )
             
             with col2:
-                HRVisualizations._metric_gauge(
+                st.metric(
                     "Task Completion",
-                    metrics.get('task_completion_rate', 0),
-                    max_value=100,
-                    suffix="%",
-                    unique_id=f"task_{timestamp}"
+                    f"{metrics.get('task_completion_rate', 0)}%",
+                    help="Percentage of completed tasks"
                 )
             
             with col3:
-                HRVisualizations._metric_gauge(
+                st.metric(
                     "Project Progress",
-                    metrics.get('project_progress', 0),
-                    max_value=100,
-                    suffix="%",
-                    unique_id=f"proj_{timestamp}"
+                    f"{metrics.get('project_progress', 0)}%",
+                    help="Overall project completion rate"
                 )
             
             with col4:
-                HRVisualizations._metric_gauge(
+                st.metric(
                     "Collaboration",
-                    metrics.get('collaboration_score', 0),
-                    max_value=4,
-                    unique_id=f"collab_{timestamp}"
+                    f"{metrics.get('collaboration_score', 0)}/4",
+                    help="Team collaboration rating"
                 )
+                
         except Exception as e:
-            logging.error(f"Error displaying performance metrics: {str(e)}")
+            logging.error(f"Error displaying performance overview: {str(e)}")
             st.error("Error displaying performance metrics.")
 
     @staticmethod
-    def _metric_gauge(title: str, value: float, max_value: float, suffix: str = "", unique_id: str = ""):
-        """Create a gauge chart for metrics"""
+    def _display_skills_overview(skills: Dict[str, List[str]]):
+        """Display simplified skills assessment"""
         try:
-            unique_key = f"gauge_{title}_{unique_id}".lower().replace(" ", "_")
-            
-            fig = go.Figure(go.Indicator(
-                mode="gauge+number",
-                value=value,
-                domain={'x': [0, 1], 'y': [0, 1]},
-                title={'text': title},
-                number={'suffix': suffix},
-                gauge={
-                    'axis': {'range': [0, max_value]},
-                    'bar': {'color': "#2E86C1"},
-                    'steps': [
-                        {'range': [0, max_value/3], 'color': "#F8F9F9"},
-                        {'range': [max_value/3, 2*max_value/3], 'color': "#EBF5FB"},
-                        {'range': [2*max_value/3, max_value], 'color': "#D4E6F1"}
-                    ]
-                }
-            ))
-            
-            fig.update_layout(height=200)
-            st.plotly_chart(fig, use_container_width=True, key=unique_key)
-        except Exception as e:
-            logging.error(f"Error creating metric gauge: {str(e)}")
-            st.error(f"Error displaying {title} metric.")
-
-    @staticmethod
-    def _display_skills_assessment(skills: Dict[str, List[str]]):
-        """Display skills assessment section"""
-        try:
-            timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
             col1, col2 = st.columns(2)
             
             with col1:
-                HRVisualizations._skills_radar_chart(skills, f"radar_{timestamp}")
+                st.markdown("#### 💪 Strengths")
+                strengths = skills.get('strengths', [])
+                if strengths:
+                    for strength in strengths:
+                        st.success(f"✓ {strength}")
+                else:
+                    st.info("No strengths identified yet.")
             
             with col2:
-                HRVisualizations._development_areas_chart(skills, f"dev_{timestamp}")
+                st.markdown("#### 📈 Development Areas")
+                dev_areas = skills.get('development_areas', [])
+                if dev_areas:
+                    for area in dev_areas:
+                        st.warning(f"→ {area}")
+                else:
+                    st.info("No development areas identified.")
+                    
         except Exception as e:
-            logging.error(f"Error displaying skills assessment: {str(e)}")
+            logging.error(f"Error displaying skills overview: {str(e)}")
             st.error("Error displaying skills assessment.")
 
     @staticmethod
-    def _skills_radar_chart(skills: Dict[str, List[str]], unique_id: str):
-        """Create radar chart for skills"""
-        try:
-            categories = ['Technical', 'Soft Skills', 'Leadership', 'Communication']
-            values = [
-                len(skills.get('technical_skills', [])),
-                len(skills.get('soft_skills', [])),
-                sum(1 for skill in skills.get('strengths', []) if 'lead' in skill.lower()),
-                sum(1 for skill in skills.get('soft_skills', []) if 'communicat' in skill.lower())
-            ]
-
-            fig = go.Figure(data=go.Scatterpolar(
-                r=values,
-                theta=categories,
-                fill='toself',
-                name='Skills'
-            ))
-
-            fig.update_layout(
-                polar=dict(radialaxis=dict(visible=True, range=[0, max(values)+1])),
-                showlegend=False,
-                title="Skills Distribution"
-            )
-            
-            st.plotly_chart(fig, use_container_width=True, key=f"skills_radar_{unique_id}")
-        except Exception as e:
-            logging.error(f"Error creating skills radar chart: {str(e)}")
-            st.error("Error displaying skills radar chart.")
-
-    @staticmethod
-    def _development_areas_chart(skills: Dict[str, List[str]], unique_id: str):
-        """Create bar chart for development areas"""
-        try:
-            development_areas = skills.get('development_areas', [])
-            if not development_areas:
-                st.info("No development areas identified.")
-                return
-                
-            fig = go.Figure(data=[
-                go.Bar(
-                    x=[area for area in development_areas],
-                    y=[1 for _ in development_areas],
-                    text=development_areas,
-                    textposition='auto',
-                )
-            ])
-            
-            fig.update_layout(
-                title="Areas for Development",
-                showlegend=False,
-                height=300
-            )
-            
-            st.plotly_chart(fig, use_container_width=True, key=f"dev_areas_{unique_id}")
-        except Exception as e:
-            logging.error(f"Error creating development areas chart: {str(e)}")
-            st.error("Error displaying development areas.")
-
-    @staticmethod
     def _display_recommendations(recommendations: Dict[str, List[str]]):
-        """Display growth recommendations in a formatted manner"""
+        """Display simplified recommendations"""
         try:
-            # Ensure we have a recommendations dictionary
-            if not recommendations or not isinstance(recommendations, dict):
-                st.info("No recommendations available.")
-                return
-            
-            timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
-
-            # Display immediate actions with icons and formatting
+            # Immediate Actions
+            st.markdown("#### 🎯 Priority Actions")
             immediate_actions = recommendations.get('immediate_actions', [])
             if immediate_actions:
-                for i, action in enumerate(immediate_actions):
-                    st.info(f"📌 {action}", key=f"action_{i}_{timestamp}")
+                for action in immediate_actions:
+                    st.info(f"📌 {action}")
             else:
                 st.info("No immediate actions recommended.")
-            
-            # Display development goals in an expander
-            with st.expander("Long-term Development Goals"):
-                development_goals = recommendations.get('development_goals', [])
-                if development_goals:
-                    for i, goal in enumerate(development_goals):
-                        st.write(f"🎯 {goal}", key=f"goal_{i}_{timestamp}")
+
+            # Development Goals
+            with st.expander("View Development Goals"):
+                goals = recommendations.get('development_goals', [])
+                if goals:
+                    for goal in goals:
+                        st.write(f"🎯 {goal}")
                 else:
-                    st.write("No long-term goals set yet.")
-            
-            # Display training needs if available
-            training_needs = recommendations.get('training_needs', [])
-            if training_needs:
-                with st.expander("Recommended Training"):
-                    for i, training in enumerate(training_needs):
-                        st.write(f"📚 {training}", key=f"training_{i}_{timestamp}")
+                    st.write("No development goals set yet.")
+
+            # Training Recommendations
+            with st.expander("View Training Recommendations"):
+                training = recommendations.get('training_needs', [])
+                if training:
+                    for item in training:
+                        st.write(f"📚 {item}")
+                else:
+                    st.write("No specific training recommended at this time.")
                     
         except Exception as e:
             logging.error(f"Error displaying recommendations: {str(e)}")
             st.error("Error displaying recommendations.")
+
+    @staticmethod
+    def _display_wellness(wellness: Dict[str, str]):
+        """Display wellness indicators"""
+        try:
+            st.markdown("#### Wellness Indicators")
+            
+            # Work-Life Balance
+            balance = wellness.get('work_life_balance', 'N/A')
+            st.write(f"🔋 Work-Life Balance: {balance}")
+            
+            # Workload
+            workload = wellness.get('workload_assessment', 'N/A')
+            st.write(f"📊 Workload: {workload}")
+            
+            # Engagement
+            engagement = wellness.get('engagement_level', 'N/A')
+            st.write(f"⭐ Engagement: {engagement}")
+            
+        except Exception as e:
+            logging.error(f"Error displaying wellness indicators: {str(e)}")
+            st.error("Error displaying wellness information.")
+
+    @staticmethod
+    def _display_risk_factors(risk_factors: Dict[str, str]):
+        """Display risk assessment"""
+        try:
+            st.markdown("#### Risk Assessment")
+            
+            # Risk Indicators
+            burnout = risk_factors.get('burnout_risk', 'N/A')
+            retention = risk_factors.get('retention_risk', 'N/A')
+            trend = risk_factors.get('performance_trend', 'N/A')
+            
+            st.write(f"🔥 Burnout Risk: {burnout}")
+            st.write(f"🎯 Retention Risk: {retention}")
+            st.write(f"📈 Performance Trend: {trend}")
+            
+        except Exception as e:
+            logging.error(f"Error displaying risk factors: {str(e)}")
+            st.error("Error displaying risk assessment.")
