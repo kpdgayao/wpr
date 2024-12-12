@@ -202,3 +202,42 @@ class HRVisualizations:
         except Exception as e:
             logging.error(f"Error creating development areas chart: {str(e)}")
             st.error("Error displaying development areas.")
+
+    @staticmethod
+    def _display_recommendations(recommendations: Dict[str, List[str]]):
+        """Display growth recommendations in a formatted manner"""
+        try:
+            # Ensure we have a recommendations dictionary
+            if not recommendations or not isinstance(recommendations, dict):
+                st.info("No recommendations available.")
+                return
+            
+            timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
+
+            # Display immediate actions with icons and formatting
+            immediate_actions = recommendations.get('immediate_actions', [])
+            if immediate_actions:
+                for i, action in enumerate(immediate_actions):
+                    st.info(f"📌 {action}", key=f"action_{i}_{timestamp}")
+            else:
+                st.info("No immediate actions recommended.")
+            
+            # Display development goals in an expander
+            with st.expander("Long-term Development Goals"):
+                development_goals = recommendations.get('development_goals', [])
+                if development_goals:
+                    for i, goal in enumerate(development_goals):
+                        st.write(f"🎯 {goal}", key=f"goal_{i}_{timestamp}")
+                else:
+                    st.write("No long-term goals set yet.")
+            
+            # Display training needs if available
+            training_needs = recommendations.get('training_needs', [])
+            if training_needs:
+                with st.expander("Recommended Training"):
+                    for i, training in enumerate(training_needs):
+                        st.write(f"📚 {training}", key=f"training_{i}_{timestamp}")
+                    
+        except Exception as e:
+            logging.error(f"Error displaying recommendations: {str(e)}")
+            st.error("Error displaying recommendations.")
