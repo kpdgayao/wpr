@@ -123,7 +123,6 @@ class WPRApp:
             st.session_state.year = selected_year
 
     def _handle_user_submission(self):
-        """Handle user submission logic"""
         try:
             # Display week selector if not in edit mode
             if not st.session_state.edit_mode:
@@ -132,22 +131,24 @@ class WPRApp:
             # Check for existing submission BEFORE displaying form
             if not st.session_state.edit_mode:
                 existing = self.db.check_existing_submission(
-                    st.session_state.selected_name.split(" (")[0],  # Get actual name
+                    st.session_state.selected_name.split(" (")[0],
                     st.session_state.week_number,
-                    datetime.now().year
+                    st.session_state.year
                 )
                 if existing:
-                    st.warning(f"You have already submitted a report for Week {st.session_state.week_number}. You can edit it from the list above.")
-                    return
-            
+                    st.warning(f"You have already submitted a report for Week {st.session_state.week_number}. You can edit it from the list below.")
+                    
             # Display user history
-            user_data = self.db.get_user_reports(st.session_state.selected_name)  # Remove the limit parameter
+            user_data = self.db.get_user_reports(st.session_state.selected_name)
             if not user_data.empty:
                 st.markdown("### Previous Submissions")
                 for _, row in user_data.iterrows():
                     col1, col2, col3 = st.columns([3, 1, 1])
                     with col1:
-                        st.write(f"Week {row['Week Number']} - {row.get('created_at', 'No date')}")
+                        # Format the date for better readability
+                        created_date = datetime.fromisoformat(row['created_at'].replace('Z', '+00:00'))
+                        formatted_date = created_date.strftime("%Y-%m-%d %H:%M")
+                        st.write(f"Week {row['Week Number']} ({formatted_date})")
                     with col2:
                         if st.button("📝 Edit", key=f"edit_{row['id']}"):
                             st.session_state.edit_mode = True
@@ -616,6 +617,37 @@ class WPRApp:
         except Exception as e:
             logging.error(f"Error processing submission: {str(e)}")
             return False
+        
+    def _process_form_submission(self, form_data: Dict[str, Any]):
+        """Process new form submission"""
+        try:
+            user_email = form_data.pop('user_email')  # Remove email from data dict
+            
+            with st.spinner("Processing your submission..."):
+                # Save to database
+                if not self.db.save_data(form_data):
+                    st.error("Error saving data to database.")
+                    return
+                
+                # Process submission with AI analysis
+                if not self.process_submission(form_data, user_email):
+                    st.error("Error processing submission.")
+                    return
+                
+                st.success("WPR submitted successfully! Check your email for a summary.")
+                
+                # Display HR analysis
+                self.display_hr_analysis(form_data['Name'])
+                
+                # Reset form
+                st.session_state.form_data = {}
+                
+                # Rerun to refresh the page
+                st.rerun()
+                
+        except Exception as e:
+            logging.error(f"Error processing form submission: {str(e)}")
+            st.error("Error processing your submission. Please try again.")
 
     def run(self) -> None:
         """Run the WPR application"""

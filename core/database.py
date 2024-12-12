@@ -26,9 +26,12 @@ class DatabaseHandler:
             raise
 
     def save_data(self, data: Dict[str, Any]) -> bool:
-        """Save WPR data to database"""
         try:
-            # Check again before saving
+            # Extract actual name without team info if present
+            if 'Name' in data:
+                data['Name'] = data['Name'].split(" (")[0] if " (" in data['Name'] else data['Name']
+            
+            # Check for existing submission AFTER name is processed
             existing = self.check_existing_submission(
                 data['Name'],
                 data['Week Number'],
@@ -87,20 +90,22 @@ class DatabaseHandler:
             logging.error(f"Error loading data: {str(e)}")
             return pd.DataFrame()
 
-    def get_user_reports(self, user_name: str, limit: int = None) -> pd.DataFrame:
-        """Get reports for a specific user"""
+    def get_user_reports(self, user_name: str) -> pd.DataFrame:
+        """Get reports for a specific user, ordered by most recent first"""
         try:
             # Extract actual name without team info
             actual_name = user_name.split(" (")[0] if " (" in user_name else user_name
             
             logging.info(f"Fetching reports for user: {actual_name}")
-            query = self.client.table(self.table_name)\
+            
+            # Build query to get all submissions ordered by most recent first
+            result = self.client.table(self.table_name)\
                 .select("*")\
                 .eq("Name", actual_name)\
-                .order('Year', desc=True)\
-                .order('Week Number', desc=True)
+                .order('created_at', desc=True)\
+                .execute()
             
-            result = query.execute()
+            logging.info(f"Found {len(result.data)} reports for user {actual_name}")
             
             # Convert JSONB strings back to Python objects
             data = result.data
@@ -115,6 +120,7 @@ class DatabaseHandler:
                             row[field] = []
             
             return pd.DataFrame(data)
+            
         except Exception as e:
             logging.error(f"Error getting user reports: {str(e)}")
             return pd.DataFrame()
@@ -133,9 +139,10 @@ class DatabaseHandler:
                 .eq("Year", year)\
                 .execute()
                 
-            # Add debug logging
-            logging.debug(f"Found {len(result.data)} existing submissions")
-            return len(result.data) > 0
+            exists = len(result.data) > 0
+            logging.info(f"Submission exists: {exists} for {actual_name}, Week {week_number}, Year {year}")
+            return exists
+            
         except Exception as e:
             logging.error(f"Error checking existing submission: {str(e)}")
             return False
@@ -329,4 +336,51 @@ class DatabaseHandler:
         except Exception as e:
             logging.error(f"Error getting submission: {str(e)}")
             return {}  
+        
+    def debug_check_database(self, user_name: str) -> None:
+        """Debug method to check database contents"""
+        try:
+            actual_name = user_name.split(" (")[0] if " (" in user_name else user_name
+            
+            # Get all records for the user
+            result = self.client.table(self.table_name)\
+                .select("*")\
+                .eq("Name", actual_name)\
+                .execute()
+                
+            logging.info(f"DEBUG: Found {len(result.data)} total records for {actual_name}")
+            
+            # Log each record
+            for record in result.data:
+                logging.info(f"DEBUG: Record - Week {record.get('Week Number')}, "
+                            f"Year {record.get('Year')}, "
+                            f"ID {record.get('id')}, "
+                            f"Created {record.get('created_at')}")
+                
+        except Exception as e:
+            logging.error(f"Debug check failed: {str(e)}")
+
+    def debug_check_week_range(self, user_name: str, start_week: int, end_week: int, year: int) -> None:
+        """Debug method to check specific week range"""
+        try:
+            actual_name = user_name.split(" (")[0] if " (" in user_name else user_name
+            
+            result = self.client.table(self.table_name)\
+                .select("*")\
+                .eq("Name", actual_name)\
+                .eq("Year", year)\
+                .gte("Week Number", start_week)\
+                .lte("Week Number", end_week)\
+                .execute()
+                
+            logging.info(f"DEBUG: Checking weeks {start_week}-{end_week} for {actual_name}")
+            logging.info(f"DEBUG: Found {len(result.data)} records in range")
+            
+            for record in result.data:
+                logging.info(f"DEBUG: Week {record.get('Week Number')} "
+                            f"(ID: {record.get('id')}, "
+                            f"Created: {record.get('created_at')})")
+                
+        except Exception as e:
+            logging.error(f"Debug week range check failed: {str(e)}")
     
