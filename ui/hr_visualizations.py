@@ -1,5 +1,7 @@
 # ui/hr_visualizations.py
 import streamlit as st
+import plotly.graph_objects as go  # Add this import
+import plotly.express as px
 from typing import Dict, Any, List, Optional
 import logging
 from datetime import datetime
@@ -40,44 +42,6 @@ class HRVisualizations:
         except Exception as e:
             logging.error(f"Error displaying HR dashboard: {str(e)}")
             st.error("Error displaying HR analytics dashboard. Please try again later.")
-
-    @staticmethod
-    def _display_performance_overview(metrics: Dict[str, float]):
-        """Display simplified performance metrics"""
-        try:
-            col1, col2, col3, col4 = st.columns(4)
-            
-            with col1:
-                st.metric(
-                    "Productivity",
-                    f"{metrics.get('productivity_score', 0)}/4",
-                    help="Overall productivity rating"
-                )
-            
-            with col2:
-                st.metric(
-                    "Task Completion",
-                    f"{metrics.get('task_completion_rate', 0)}%",
-                    help="Percentage of completed tasks"
-                )
-            
-            with col3:
-                st.metric(
-                    "Project Progress",
-                    f"{metrics.get('project_progress', 0)}%",
-                    help="Overall project completion rate"
-                )
-            
-            with col4:
-                st.metric(
-                    "Collaboration",
-                    f"{metrics.get('collaboration_score', 0)}/4",
-                    help="Team collaboration rating"
-                )
-                
-        except Exception as e:
-            logging.error(f"Error displaying performance overview: {str(e)}")
-            st.error("Error displaying performance metrics.")
 
     @staticmethod
     def _display_skills_overview(skills: Dict[str, List[str]]):
@@ -182,3 +146,46 @@ class HRVisualizations:
         except Exception as e:
             logging.error(f"Error displaying risk factors: {str(e)}")
             st.error("Error displaying risk assessment.")
+
+    @staticmethod
+    def _display_performance_overview(metrics: Dict[str, float]):
+        """Display performance overview section"""
+        try:
+            timestamp = datetime.now().strftime('%Y%m%d%H%M%S%f')
+            col1, col2, col3, col4 = st.columns(4)
+            
+            with col1:
+                st.metric(
+                    "Productivity",
+                    f"{metrics.get('productivity_score', 0)}/4",
+                    key=f"prod_metric_{timestamp}",
+                    help="Overall productivity rating"
+                )
+            
+            with col2:
+                st.metric(
+                    "Task Completion",
+                    f"{metrics.get('task_completion_rate', 0)}%",
+                    key=f"task_metric_{timestamp}",
+                    help="Percentage of completed tasks"
+                )
+            
+            with col3:
+                st.metric(
+                    "Project Progress",
+                    f"{metrics.get('project_progress', 0)}%",
+                    key=f"proj_metric_{timestamp}",
+                    help="Overall project completion rate"
+                )
+            
+            with col4:
+                st.metric(
+                    "Collaboration",
+                    f"{metrics.get('collaboration_score', 0)}/4",
+                    key=f"collab_metric_{timestamp}",
+                    help="Team collaboration rating"
+                )
+                
+        except Exception as e:
+            logging.error(f"Error displaying performance overview: {str(e)}")
+            st.error("Error displaying performance metrics.")

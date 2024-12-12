@@ -74,10 +74,13 @@ class DatabaseHandler:
     def get_user_reports(self, user_name: str, limit: int = 5) -> pd.DataFrame:
         """Get recent reports for a specific user"""
         try:
-            logging.info(f"Fetching reports for user: {user_name}")
+            # Extract actual name without team info
+            actual_name = user_name.split(" (")[0] if " (" in user_name else user_name
+            
+            logging.info(f"Fetching reports for user: {actual_name}")
             result = self.client.table(self.table_name)\
                 .select("*")\
-                .eq("Name", user_name)\
+                .eq("Name", actual_name)\
                 .order('created_at', desc=True)\
                 .limit(limit)\
                 .execute()
@@ -102,13 +105,19 @@ class DatabaseHandler:
     def check_existing_submission(self, name: str, week_number: int, year: int) -> bool:
         """Check if user has already submitted for the given week"""
         try:
-            logging.info(f"Checking submission for {name}, Week {week_number}, Year {year}")
+            # Extract actual name without team info
+            actual_name = name.split(" (")[0] if " (" in name else name
+            
+            logging.info(f"Checking submission for {actual_name}, Week {week_number}, Year {year}")
             result = self.client.table(self.table_name)\
                 .select("*")\
-                .eq("Name", name)\
+                .eq("Name", actual_name)\
                 .eq("Week Number", week_number)\
                 .eq("Year", year)\
                 .execute()
+                
+            # Add debug logging
+            logging.debug(f"Found {len(result.data)} existing submissions")
             return len(result.data) > 0
         except Exception as e:
             logging.error(f"Error checking existing submission: {str(e)}")

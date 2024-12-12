@@ -609,6 +609,15 @@ class WPRApp:
         try:
             user_email = form_data.pop('user_email')  # Remove email from data dict
             
+            # Check for existing submission first
+            if self.db.check_existing_submission(
+                form_data['Name'],
+                form_data['Week Number'],
+                form_data['Year']
+            ):
+                st.error(f"A submission for Week {form_data['Week Number']} already exists.")
+                return
+            
             with st.spinner("Processing your submission..."):
                 # Save to database
                 if not self.db.save_data(form_data):
@@ -621,10 +630,9 @@ class WPRApp:
                     return
                 
                 st.success("WPR submitted successfully! Check your email for a summary.")
-                st.session_state.submitted = True
                 
-                # Display HR analysis
-                self.display_hr_analysis(form_data['Name'])
+                # Force a page rerun to update the display
+                st.rerun()
                 
         except Exception as e:
             logging.error(f"Error processing form submission: {str(e)}")
