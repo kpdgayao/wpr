@@ -73,10 +73,12 @@ class WPRApp:
         """Initialize or reset session state variables"""
         if 'initialized' not in st.session_state:
             current_week = datetime.now().isocalendar()[1]
+            current_year = datetime.now().year
             st.session_state.update({
                 'initialized': True,
                 'selected_name': "",
                 'week_number': current_week,
+                'year': current_year,  # Add year to session state
                 'edit_mode': False,
                 'edit_id': None,
                 'show_task_section': False,
@@ -84,7 +86,7 @@ class WPRApp:
                 'show_productivity_section': False,
                 'show_peer_evaluation_section': False,
                 'submitted': False,
-                'form_data': {}  # Store form data for editing
+                'form_data': {}
             })
 
     def _display_week_selector(self):
@@ -95,19 +97,30 @@ class WPRApp:
         col1, col2 = st.columns(2)
         
         with col1:
-            # Allow selecting from past 4 weeks to next week
-            weeks = list(range(current_week - 4, current_week + 2))
-            week_options = [f"Week {w}" for w in weeks]
+            # Expand the range to include all weeks from 1 to 52
+            week_options = [f"Week {w}" for w in range(1, 53)]
+            
+            # Find the default index (current week or stored week number)
+            default_index = week_options.index(f"Week {st.session_state.week_number}")
+            
             selected_week = st.selectbox(
                 "Select Week",
                 options=week_options,
-                index=weeks.index(st.session_state.week_number),
+                index=default_index,
                 key='week_selector'
             )
             st.session_state.week_number = int(selected_week.split()[1])
         
         with col2:
-            st.write(f"Year: {current_year}")
+            # Add year selection
+            year_options = list(range(current_year - 1, current_year + 1))
+            selected_year = st.selectbox(
+                "Year",
+                options=year_options,
+                index=year_options.index(current_year),
+                key='year_selector'
+            )
+            st.session_state.year = selected_year
 
     def _handle_user_submission(self):
         """Handle user submission logic"""

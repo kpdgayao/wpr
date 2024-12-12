@@ -98,13 +98,8 @@ class DatabaseHandler:
                 .select("*")\
                 .eq("Name", actual_name)\
                 .order('Year', desc=True)\
-                .order('Week Number', desc=True)\
-                .order('created_at', desc=True)
-                
-            # Only apply limit if specified
-            if limit:
-                query = query.limit(limit)
-                
+                .order('Week Number', desc=True)
+            
             result = query.execute()
             
             # Convert JSONB strings back to Python objects
