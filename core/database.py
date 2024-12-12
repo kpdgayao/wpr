@@ -98,11 +98,12 @@ class DatabaseHandler:
             
             logging.info(f"Fetching reports for user: {actual_name}")
             
-            # Build query to get all submissions ordered by most recent first
+            # Build query to get all submissions ordered by year and week number
             result = self.client.table(self.table_name)\
                 .select("*")\
                 .eq("Name", actual_name)\
-                .order('created_at', desc=True)\
+                .order('Year', desc=True)\
+                .order('Week Number', desc=True)\
                 .execute()
             
             logging.info(f"Found {len(result.data)} reports for user {actual_name}")
@@ -119,8 +120,13 @@ class DatabaseHandler:
                             logging.warning(f"Failed to parse JSON for {field} in row {row.get('id')}")
                             row[field] = []
             
-            return pd.DataFrame(data)
+            # Convert to DataFrame and sort by Year and Week Number
+            df = pd.DataFrame(data)
+            if not df.empty:
+                df = df.sort_values(by=['Year', 'Week Number'], ascending=[False, False])
             
+            return df
+                
         except Exception as e:
             logging.error(f"Error getting user reports: {str(e)}")
             return pd.DataFrame()

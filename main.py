@@ -145,10 +145,9 @@ class WPRApp:
                 for _, row in user_data.iterrows():
                     col1, col2, col3 = st.columns([3, 1, 1])
                     with col1:
-                        # Format the date for better readability
                         created_date = datetime.fromisoformat(row['created_at'].replace('Z', '+00:00'))
                         formatted_date = created_date.strftime("%Y-%m-%d %H:%M")
-                        st.write(f"Week {row['Week Number']} ({formatted_date})")
+                        st.write(f"Week {row['Week Number']}, {row['Year']} ({formatted_date})")
                     with col2:
                         if st.button("📝 Edit", key=f"edit_{row['id']}"):
                             st.session_state.edit_mode = True
