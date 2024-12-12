@@ -143,28 +143,31 @@ class WPRApp:
             if not user_data.empty:
                 st.markdown("### Previous Submissions")
                 
-                # Add debug information
-                st.write("Debug: Total submissions found:", len(user_data))
+                # Create a container for the submissions
+                submissions_container = st.container()
                 
-                for _, row in user_data.iterrows():
-                    col1, col2, col3 = st.columns([3, 1, 1])
-                    with col1:
-                        created_date = datetime.fromisoformat(row['created_at'].replace('Z', '+00:00'))
-                        formatted_date = created_date.strftime("%Y-%m-%d %H:%M")
-                        st.write(f"Week {row['Week Number']}, {row['Year']} ({formatted_date})")
-                        
-                        # Add debug information
-                        st.write(f"Debug: Year={row['Year']}, Week={row['Week Number']}")
-                        
-                    with col2:
-                        if st.button("📝 Edit", key=f"edit_{row['id']}"):
-                            st.session_state.edit_mode = True
-                            st.session_state.edit_id = row['id']
-                            self._load_submission_for_edit(row)
-                            st.rerun()
-                    with col3:
-                        if st.button("👁️ View", key=f"view_{row['id']}"):
-                            self._display_submission_details(row)
+                with submissions_container:
+                    for idx, row in user_data.iterrows():
+                        with st.container():
+                            col1, col2, col3 = st.columns([3, 1, 1])
+                            
+                            with col1:
+                                created_date = datetime.fromisoformat(str(row['created_at']).replace('Z', '+00:00'))
+                                formatted_date = created_date.strftime("%Y-%m-%d %H:%M")
+                                st.write(f"Week {int(row['Week Number'])}, {int(row['Year'])} ({formatted_date})")
+                            
+                            with col2:
+                                if st.button("📝 Edit", key=f"edit_{row['id']}"):
+                                    st.session_state.edit_mode = True
+                                    st.session_state.edit_id = row['id']
+                                    self._load_submission_for_edit(row)
+                                    st.rerun()
+                            
+                            with col3:
+                                if st.button("👁️ View", key=f"view_{row['id']}"):
+                                    self._display_submission_details(row)
+                            
+                            st.divider()  # Add a visual separator between entries
             
             # Get form inputs only if no existing submission
             form_data = self._collect_form_data()

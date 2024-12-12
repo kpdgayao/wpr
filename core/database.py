@@ -98,31 +98,27 @@ class DatabaseHandler:
             
             logging.info(f"Fetching reports for user: {actual_name}")
             
-            # Build query to get all submissions ordered by year and week number
+            # Build query to get all submissions
             result = self.client.table(self.table_name)\
                 .select("*")\
                 .eq("Name", actual_name)\
-                .order("Year", desc=True)\
-                .order("Week Number", desc=True)\
                 .execute()
-            
-            logging.info(f"Found {len(result.data)} reports for user {actual_name}")
             
             # Convert to DataFrame
             df = pd.DataFrame(result.data)
             
             if not df.empty:
-                # Ensure proper data types
-                df['Year'] = pd.to_numeric(df['Year'], errors='coerce')
-                df['Week Number'] = pd.to_numeric(df['Week Number'], errors='coerce')
+                # Convert Year and Week Number to numeric
+                df['Year'] = pd.to_numeric(df['Year'])
+                df['Week Number'] = pd.to_numeric(df['Week Number'])
                 
-                # Sort by Year and Week Number
+                # Sort by Year and Week Number in descending order
                 df = df.sort_values(
                     by=['Year', 'Week Number'], 
                     ascending=[False, False]
                 ).reset_index(drop=True)
                 
-                # Convert JSONB strings back to Python objects
+                # Process JSON fields
                 json_fields = ['Completed Tasks', 'Pending Tasks', 'Dropped Tasks',
                             'Productivity Suggestions', 'Projects', 'Peer_Evaluations']
                 
@@ -130,8 +126,10 @@ class DatabaseHandler:
                     if field in df.columns:
                         df[field] = df[field].apply(lambda x: 
                             json.loads(x) if isinstance(x, str) else (x or []))
-            
-            logging.info(f"Processed {len(df)} reports for {actual_name}")
+                
+                logging.info(f"Processed {len(df)} reports for {actual_name}")
+                logging.info(f"Latest entries: {df[['Year', 'Week Number']].head().to_dict('records')}")
+                
             return df
                 
         except Exception as e:
