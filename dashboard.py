@@ -8,6 +8,7 @@ from config.constants import Constants
 from utils.data_utils import validate_numeric_columns, calculate_week_stats
 from utils.ui_utils import apply_custom_css, display_metric_card, create_filter_section
 from config.settings import Config
+import logging
 
 # Set page configuration
 st.set_page_config(page_title="CEO Dashboard", page_icon=":bar_chart:", layout="wide")
@@ -15,9 +16,19 @@ st.set_page_config(page_title="CEO Dashboard", page_icon=":bar_chart:", layout="
 # Apply custom styling
 apply_custom_css()
 
-# Initialize database connection
-config = Config()
-db = DatabaseHandler(config.SUPABASE_URL, config.SUPABASE_KEY)
+try:
+    # Initialize database connection
+    config = Config()
+    
+    # Try to load email config but don't fail if not available
+    if not config.load_email_config():
+        logging.warning("Email configuration not available. Some features may be limited.")
+    
+    db = DatabaseHandler(config.SUPABASE_URL, config.SUPABASE_KEY)
+except Exception as e:
+    st.error("Failed to initialize configuration. Please check your environment variables.")
+    st.exception(e)
+    st.stop()
 
 # Load data
 @st.cache_data(ttl=Constants.CACHE_TTL)

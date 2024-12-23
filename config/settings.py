@@ -11,14 +11,14 @@ class Config:
             # Load environment variables
             load_dotenv()
             
-            # Database configuration
+            # Database configuration (required)
             self.supabase_url = self._get_env_var("SUPABASE_URL")
             self.supabase_key = self._get_env_var("SUPABASE_KEY")
             
-            # Email configuration
-            self.mailjet_api_key = self._get_env_var("MAILJET_API_KEY")
-            self.mailjet_api_secret = self._get_env_var("MAILJET_API_SECRET")
-            self.anthropic_api_key = self._get_env_var("ANTHROPIC_API_KEY")
+            # Email configuration (optional)
+            self.mailjet_api_key = None
+            self.mailjet_api_secret = None
+            self.anthropic_api_key = None
             
             # Teams configuration
             self.teams: Dict[str, List[str]] = {
@@ -68,9 +68,24 @@ class Config:
             # Work locations
             self.work_locations: List[str] = ["Office", "Home"]
             
+            logging.info("Configuration initialized successfully")
         except Exception as e:
             logging.error(f"Error initializing configuration: {str(e)}")
             raise
+
+    def load_email_config(self) -> bool:
+        """
+        Load email-related configuration.
+        Returns True if successful, False otherwise.
+        """
+        try:
+            self.mailjet_api_key = self._get_env_var("MAILJET_API_KEY")
+            self.mailjet_api_secret = self._get_env_var("MAILJET_API_SECRET")
+            self.anthropic_api_key = self._get_env_var("ANTHROPIC_API_KEY")
+            return True
+        except ValueError as e:
+            logging.warning(f"Email configuration not loaded: {str(e)}")
+            return False
 
     def _get_env_var(self, var_name: str) -> str:
         """Get environment variable with error handling"""
