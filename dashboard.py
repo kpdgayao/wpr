@@ -1,125 +1,95 @@
 import streamlit as st
-from core.database import load_data, display_data
+from core.database import DatabaseHandler
 import matplotlib.pyplot as plt
 import pandas as pd
+from config.constants import Constants
+from utils.data_utils import validate_numeric_columns, calculate_week_stats
+from utils.ui_utils import apply_custom_css, display_metric_card, create_filter_section
+from config.settings import Config
 
 # Set page configuration
 st.set_page_config(page_title="CEO Dashboard", page_icon=":bar_chart:", layout="wide")
 
-st.markdown("""
-    <style>
-    body {
-        background-color: #f0f0f0;
-    }
-    .streamlit-expanderHeader {
-        font-size: 18px;
-        font-weight: bold;
-    }
-    </style>
-""", unsafe_allow_html=True)
+# Apply custom styling
+apply_custom_css()
+
+# Initialize database connection
+config = Config()
+db = DatabaseHandler(config.SUPABASE_URL, config.SUPABASE_KEY)
 
 # Load data
-@st.cache_data
+@st.cache_data(ttl=Constants.CACHE_TTL)
 def load_cached_data():
-    return load_data()
-
-data = load_cached_data()
+    """Load data with caching enabled and TTL set to 1 hour."""
+    data = db.load_data()  # Use the load_data method from DatabaseHandler
+    return validate_numeric_columns(data, [
+        "Week Number",
+        "Number of Completed Tasks",
+        "Number of Pending Tasks",
+        "Number of Dropped Tasks",
+        "Productivity Rating"
+    ])
 
 try:
-    data["Week Number"] = pd.to_numeric(data["Week Number"], errors="coerce")
-    data = data[data["Week Number"].notna()]
-except KeyError:
-    st.error("The 'Week Number' column is missing in the data.")
-    data["Week Number"] = pd.Series(dtype=int)
+    data = load_cached_data()
+    if data.empty:
+        st.warning("No data found in the database.")
+        st.stop()
+except Exception as e:
+    st.error("Failed to load data from database. Please check your connection settings.")
+    st.exception(e)
+    st.stop()
 
-try:
-    data["Number of Completed Tasks"] = pd.to_numeric(data["Number of Completed Tasks"], errors="coerce")
-    data["Number of Pending Tasks"] = pd.to_numeric(data["Number of Pending Tasks"], errors="coerce")
-    data["Number of Dropped Tasks"] = pd.to_numeric(data["Number of Dropped Tasks"], errors="coerce")
-    data = data[data[["Number of Completed Tasks", "Number of Pending Tasks", "Number of Dropped Tasks"]].notna().all(axis=1)]
-except KeyError as e:
-    st.error(f"The following column is missing in the data: {str(e)}")
-    data["Number of Completed Tasks"] = pd.Series(dtype=int)
-    data["Number of Pending Tasks"] = pd.Series(dtype=int)
-    data["Number of Dropped Tasks"] = pd.Series(dtype=int)
+# Create filters
+filter_columns = ["Team", "Week Number", "Name"]
+filter_labels = {
+    "Team": "Select Teams",
+    "Week Number": "Select Weeks",
+    "Name": "Select Employees"
+}
+filters = create_filter_section(data, filter_columns, filter_labels)
 
-# Convert "Productivity Rating" column to numeric
-try:
-    data["Productivity Rating"] = pd.to_numeric(data["Productivity Rating"].str.split(" - ").str[0], errors="coerce")
-    data = data[data["Productivity Rating"].notna()]
-except KeyError:
-    st.error("The 'Productivity Rating' column is missing in the data.")
-    data["Productivity Rating"] = pd.Series(dtype=float)
+# Add project filter separately due to its nested structure
+selected_projects = st.sidebar.multiselect(
+    "Select Projects",
+    data["Projects"].apply(lambda x: [project["name"] for project in x if isinstance(project, dict)]).explode().unique()
+)
 
-# Sidebar filters
-st.sidebar.header("Filters")
-selected_teams = st.sidebar.multiselect("Select Teams", data["Team"].unique(), default=data["Team"].unique())
-selected_weeks = st.sidebar.multiselect("Select Week Numbers", data["Week Number"].unique(), default=data["Week Number"].unique())
-selected_employees = st.sidebar.multiselect("Select Employees", data["Name"].unique(), default=data["Name"].unique())
-selected_projects = st.sidebar.multiselect("Select Projects", data["Projects"].apply(lambda x: [project["name"] for project in x if isinstance(project, dict)]).explode().unique())
+@st.cache_data(ttl=Constants.CACHE_TTL)
+def filter_cached_data(data, filters, selected_projects):
+    """Filter data based on selected criteria with caching enabled."""
+    filtered = data.copy()
+    
+    for col, selected in filters.items():
+        if selected:
+            filtered = filtered[filtered[col].isin(selected)]
+    
+    if selected_projects:
+        filtered = filtered[filtered["Projects"].apply(
+            lambda x: any(project["name"] in selected_projects 
+                        for project in x if isinstance(project, dict))
+        )]
+    
+    return filtered
 
-# Filter data based on selected team and week
-@st.cache_data(show_spinner=False)
-def filter_data(data, selected_teams, selected_weeks, selected_employees, selected_projects):
-    if selected_teams and selected_weeks and selected_employees and selected_projects:
-        filtered_data = data[(data["Team"].isin(selected_teams)) & (data["Week Number"].isin(selected_weeks)) & (data["Name"].isin(selected_employees)) & (data["Projects"].apply(lambda x: any(project["name"] in selected_projects for project in x if isinstance(project, dict))))]
-    elif selected_teams and selected_weeks and selected_employees:
-        filtered_data = data[(data["Team"].isin(selected_teams)) & (data["Week Number"].isin(selected_weeks)) & (data["Name"].isin(selected_employees))]
-    elif selected_teams and selected_weeks and selected_projects:
-        filtered_data = data[(data["Team"].isin(selected_teams)) & (data["Week Number"].isin(selected_weeks)) & (data["Projects"].apply(lambda x: any(project["name"] in selected_projects for project in x if isinstance(project, dict))))]
-    elif selected_teams and selected_employees and selected_projects:
-        filtered_data = data[(data["Team"].isin(selected_teams)) & (data["Name"].isin(selected_employees)) & (data["Projects"].apply(lambda x: any(project["name"] in selected_projects for project in x if isinstance(project, dict))))]
-    elif selected_weeks and selected_employees and selected_projects:
-        filtered_data = data[(data["Week Number"].isin(selected_weeks)) & (data["Name"].isin(selected_employees)) & (data["Projects"].apply(lambda x: any(project["name"] in selected_projects for project in x if isinstance(project, dict))))]
-    elif selected_teams and selected_weeks:
-        filtered_data = data[(data["Team"].isin(selected_teams)) & (data["Week Number"].isin(selected_weeks))]
-    elif selected_teams and selected_employees:
-        filtered_data = data[(data["Team"].isin(selected_teams)) & (data["Name"].isin(selected_employees))]
-    elif selected_teams and selected_projects:
-        filtered_data = data[(data["Team"].isin(selected_teams)) & (data["Projects"].apply(lambda x: any(project["name"] in selected_projects for project in x if isinstance(project, dict))))]
-    elif selected_weeks and selected_employees:
-        filtered_data = data[(data["Week Number"].isin(selected_weeks)) & (data["Name"].isin(selected_employees))]
-    elif selected_weeks and selected_projects:
-        filtered_data = data[(data["Week Number"].isin(selected_weeks)) & (data["Projects"].apply(lambda x: any(project["name"] in selected_projects for project in x if isinstance(project, dict))))]
-    elif selected_employees and selected_projects:
-        filtered_data = data[(data["Name"].isin(selected_employees)) & (data["Projects"].apply(lambda x: any(project["name"] in selected_projects for project in x if isinstance(project, dict))))]
-    elif selected_teams:
-        filtered_data = data[data["Team"].isin(selected_teams)]
-    elif selected_weeks:
-        filtered_data = data[data["Week Number"].isin(selected_weeks)]
-    elif selected_employees:
-        filtered_data = data[data["Name"].isin(selected_employees)]
-    elif selected_projects:
-        filtered_data = data[data["Projects"].apply(lambda x: any(project["name"] in selected_projects for project in x if isinstance(project, dict)))]
-    else:
-        filtered_data = data
-    return filtered_data
+# Apply filters
+filtered_data = filter_cached_data(data, filters, selected_projects)
 
-filtered_data = filter_data(data, selected_teams, selected_weeks, selected_employees, selected_projects)
+# Calculate and display metrics
+stats = calculate_week_stats(filtered_data)
 
-# Main content
 st.title("CEO Dashboard")
 
-with st.container():
-    st.header("Key Metrics")
-
-# Key Metrics
-try:
-    total_tasks = filtered_data["Number of Completed Tasks"].sum() + filtered_data["Number of Pending Tasks"].sum() + filtered_data["Number of Dropped Tasks"].sum()
-    completed_tasks = filtered_data["Number of Completed Tasks"].sum()
-    pending_tasks = filtered_data["Number of Pending Tasks"].sum()
-    dropped_tasks = filtered_data["Number of Dropped Tasks"].sum()
-except KeyError as e:
-    st.error(f"The following column is missing in the data: {str(e)}")
-    total_tasks = completed_tasks = pending_tasks = dropped_tasks = 0
-
+# Display metrics in a grid
 col1, col2, col3, col4 = st.columns(4)
-col1.metric("Total Tasks", total_tasks)
-col2.metric("Completed Tasks", completed_tasks)
-col3.metric("Pending Tasks", pending_tasks)
-col4.metric("Dropped Tasks", dropped_tasks)
-
-st.divider()
+with col1:
+    display_metric_card("Completed Tasks", stats['total_completed'])
+with col2:
+    display_metric_card("Pending Tasks", stats['total_pending'])
+with col3:
+    display_metric_card("Dropped Tasks", stats['total_dropped'])
+with col4:
+    display_metric_card("Avg Productivity", f"{stats['avg_productivity']:.2f}", suffix="%")
 
 # Productivity Trends
 with st.container():
@@ -375,4 +345,8 @@ with st.container():
 # Raw Data
 with st.container():
     st.header("Raw Data")
-display_data()
+    st.dataframe(
+        filtered_data,
+        use_container_width=True,
+        hide_index=True
+    )

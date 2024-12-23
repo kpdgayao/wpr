@@ -8,6 +8,7 @@ import pandas as pd
 
 # Import from our modules
 from config.settings import Config
+from config.constants import Constants
 from core.database import DatabaseHandler
 from core.email_handler import EmailHandler
 from core.validators import InputValidator
@@ -15,21 +16,18 @@ from core.ai_hr_analyzer import AIHRAnalyzer
 from ui.components import UIComponents
 from ui.hr_visualizations import HRVisualizations
 
-# At the top of the file, after imports
-class Constants:
-    MAX_TOKENS = 4000
-    AI_MODEL = "claude-3-5-sonnet-20241022"
-    LOG_FILE = "wpr.log"
-    PAGE_TITLE = "IOL Weekly Productivity Report"
-    PAGE_ICON = ":clipboard:"
-
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
+    format='%(asctime)s - %(levelname)s - %(module)s - %(message)s',
     handlers=[
         logging.StreamHandler(),
-        logging.FileHandler('wpr.log')
+        logging.handlers.RotatingFileHandler(
+            Constants.LOG_FILE,
+            maxBytes=1024 * 1024,  # 1MB
+            backupCount=5,
+            encoding='utf-8'
+        )
     ]
 )
 
@@ -396,8 +394,8 @@ class WPRApp:
     def setup_page(self) -> None:
         """Set up the Streamlit page configuration"""
         st.set_page_config(
-            page_title="IOL Weekly Productivity Report",
-            page_icon=":clipboard:",
+            page_title=Constants.PAGE_TITLE,
+            page_icon=Constants.PAGE_ICON,
             layout="wide"
         )
         self.ui.load_custom_css()
