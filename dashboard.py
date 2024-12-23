@@ -96,53 +96,58 @@ st.title("CEO Dashboard")
 # Display metrics in a grid
 col1, col2, col3, col4 = st.columns(4)
 with col1:
-    display_metric_card("Completed Tasks", stats['total_completed'])
+    display_metric_card("Completed Tasks", int(stats['total_completed']))
 with col2:
-    display_metric_card("Pending Tasks", stats['total_pending'])
+    display_metric_card("Pending Tasks", int(stats['total_pending']))
 with col3:
-    display_metric_card("Dropped Tasks", stats['total_dropped'])
+    display_metric_card("Dropped Tasks", int(stats['total_dropped']))
 with col4:
-    display_metric_card("Avg Productivity", f"{stats['avg_productivity']:.2f}", suffix="%")
+    avg_productivity = stats['avg_productivity']
+    display_metric_card("Avg Productivity", f"{avg_productivity:.2f}" if pd.notnull(avg_productivity) else "N/A")
 
 # Productivity Trends
-with st.container():
-    st.header("Productivity Trends")
-try:
-    productivity_data = filtered_data[["Week Number", "Productivity Rating"]]
-    avg_productivity = productivity_data.groupby("Week Number")["Productivity Rating"].mean()
-except KeyError as e:
-    st.error(f"The following column is missing in the data: {str(e)}")
-    avg_productivity = pd.Series(dtype=float)
+st.header("Productivity Trends")
 
-fig, ax = plt.subplots(figsize=(10, 4))
-ax.plot(avg_productivity.index, avg_productivity.values, marker="o", color="blue", linewidth=2)
-ax.set_xlabel("Week Number", fontsize=12)
-ax.set_ylabel("Average Productivity Rating", fontsize=12)
-ax.set_title("Productivity Trends", fontsize=16)
-ax.grid(True)
-ax.spines["top"].set_visible(False)
-ax.spines["right"].set_visible(False)
-st.pyplot(fig)
+# Prepare data for line graph
+productivity_data = filtered_data.groupby(['Week Number', 'Year']).agg({
+    'Productivity Rating': 'mean'
+}).reset_index()
+
+# Sort by Year and Week Number
+productivity_data = productivity_data.sort_values(['Year', 'Week Number'])
+
+if not productivity_data.empty and pd.notnull(productivity_data['Productivity Rating']).any():
+    fig, ax = plt.subplots(figsize=(10, 6))
+    ax.plot(range(len(productivity_data)), productivity_data['Productivity Rating'], marker='o')
+    ax.set_xticks(range(len(productivity_data)))
+    ax.set_xticklabels([f"Week {row['Week Number']}\n{row['Year']}" 
+                        for _, row in productivity_data.iterrows()], rotation=45)
+    ax.set_xlabel("Time Period")
+    ax.set_ylabel("Average Productivity Rating")
+    ax.set_title("Productivity Trends Over Time")
+    ax.grid(True, linestyle='--', alpha=0.7)
+    st.pyplot(fig)
+else:
+    st.warning("No productivity data available for the selected filters.")
 
 # Team Performance
-col1, col2 = st.columns([2, 1])  # Adjust the column widths
+st.header("Team Performance")
 
-with col1:
-    st.subheader("Team Performance")
-    
-try:
-    team_data = filtered_data.groupby("Team").agg({
-        "Number of Completed Tasks": "sum",
-        "Number of Pending Tasks": "sum",
-        "Number of Dropped Tasks": "sum",
-        "Productivity Rating": "mean"
-    }).reset_index()
-except KeyError as e:
-    st.error(f"The following column is missing in the data: {str(e)}")
-    team_data = pd.DataFrame(columns=["Team"])
+# Calculate team metrics
+team_data = filtered_data.groupby("Team").agg({
+    "Number of Completed Tasks": "sum",
+    "Number of Pending Tasks": "sum",
+    "Number of Dropped Tasks": "sum",
+    "Productivity Rating": ["mean", "count"]
+}).reset_index()
 
-team_data["Total Tasks"] = team_data["Number of Completed Tasks"] + team_data["Number of Pending Tasks"] + team_data["Number of Dropped Tasks"]
-team_data["Completion Rate"] = team_data["Number of Completed Tasks"] / team_data["Total Tasks"]
+team_data.columns = ["Team", "Number of Completed Tasks", "Number of Pending Tasks", 
+                    "Number of Dropped Tasks", "Avg Productivity", "Number of Reports"]
+
+# Format the productivity rating
+team_data["Avg Productivity"] = team_data["Avg Productivity"].apply(
+    lambda x: f"{x:.2f}" if pd.notnull(x) else "N/A"
+)
 
 styled_team_data = team_data.style.set_properties(**{'text-align': 'center'}).set_table_styles([
     {'selector': 'th', 'props': [('background-color', '#f0f0f0'), ('color', '#000000'), ('font-weight', 'bold')]},
@@ -195,7 +200,7 @@ for bar in bars:
 st.pyplot(fig)
 
 # Top Performers
-with col2:
+with st.container():
     st.subheader("Top Performers")
 top_performers = filtered_data.sort_values("Productivity Rating", ascending=False).head(5)
 styled_top_performers = top_performers[["Name", "Team", "Number of Completed Tasks", "Productivity Rating"]].style.set_properties(**{'text-align': 'center'}).set_table_styles([
