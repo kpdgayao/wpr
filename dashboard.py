@@ -358,8 +358,18 @@ with st.container():
 # Raw Data
 with st.container():
     st.header("Raw Data")
+    
+    # Convert list columns to string representation for display
+    display_data = filtered_data.copy()
+    list_columns = ['Completed Tasks', 'Pending Tasks', 'Dropped Tasks', 
+                   'Productivity Suggestions', 'Projects', 'Peer_Evaluations']
+    
+    for col in list_columns:
+        if col in display_data.columns:
+            display_data[col] = display_data[col].apply(lambda x: str(x) if x is not None else '[]')
+    
     st.dataframe(
-        filtered_data,
+        display_data,
         use_container_width=True,
         hide_index=True
     )
