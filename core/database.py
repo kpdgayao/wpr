@@ -17,8 +17,7 @@ class DatabaseHandler:
                 schema='public',
                 headers={},
                 auto_refresh_token=True,
-                persist_session=True,
-                storage_key='storage-key',
+                persist_session=True
             )
             
             self.client = Client(
