@@ -12,16 +12,16 @@ class Config:
             load_dotenv()
             
             # Database configuration (required)
-            self.supabase_url = self._get_env_var("SUPABASE_URL")
-            self.supabase_key = self._get_env_var("SUPABASE_KEY")
+            self.SUPABASE_URL = self._get_env_var("SUPABASE_URL")
+            self.SUPABASE_KEY = self._get_env_var("SUPABASE_KEY")
             
             # Email configuration (optional)
-            self.mailjet_api_key = None
-            self.mailjet_api_secret = None
-            self.anthropic_api_key = None
+            self.MAILJET_API_KEY = None
+            self.MAILJET_API_SECRET = None
+            self.ANTHROPIC_API_KEY = None
             
             # Teams configuration
-            self.teams: Dict[str, List[str]] = {
+            self.TEAMS: Dict[str, List[str]] = {
                 "Business Services Team": [
                     "Abigail Visperas", "Cristian Jay Duque", "Justine Louise Ferrer", 
                     "Nathalie Joy Fronda", "Kevin Philip Gayao", "Kurt Lee Gayao", 
@@ -36,14 +36,14 @@ class Config:
             }
             
             # Productivity configuration
-            self.productivity_ratings: List[str] = [
+            self.PRODUCTIVITY_RATINGS: List[str] = [
                 '1 - Not Productive',
                 '2 - Somewhat Productive',
                 '3 - Productive',
                 '4 - Very Productive'
             ]
             
-            self.productivity_suggestions: List[str] = [
+            self.PRODUCTIVITY_SUGGESTIONS: List[str] = [
                 "More Tools or Resources",
                 "More Supervision/Instruction/Guidance",
                 "Scheduled Time for Self/Recreation/Rest",
@@ -58,7 +58,7 @@ class Config:
             ]
             
             # Time slots configuration
-            self.time_slots: List[str] = [
+            self.TIME_SLOTS: List[str] = [
                 "8am - 12nn",
                 "12nn - 4pm",
                 "4pm - 8pm",
@@ -66,7 +66,7 @@ class Config:
             ]
             
             # Work locations
-            self.work_locations: List[str] = ["Office", "Home"]
+            self.WORK_LOCATIONS: List[str] = ["Office", "Home"]
             
             logging.info("Configuration initialized successfully")
         except Exception as e:
@@ -79,9 +79,9 @@ class Config:
         Returns True if successful, False otherwise.
         """
         try:
-            self.mailjet_api_key = self._get_env_var("MAILJET_API_KEY")
-            self.mailjet_api_secret = self._get_env_var("MAILJET_API_SECRET")
-            self.anthropic_api_key = self._get_env_var("ANTHROPIC_API_KEY")
+            self.MAILJET_API_KEY = self._get_env_var("MAILJET_API_KEY")
+            self.MAILJET_API_SECRET = self._get_env_var("MAILJET_API_SECRET")
+            self.ANTHROPIC_API_KEY = self._get_env_var("ANTHROPIC_API_KEY")
             return True
         except ValueError as e:
             logging.warning(f"Email configuration not loaded: {str(e)}")
@@ -98,7 +98,7 @@ class Config:
         """Returns a list of all team members with their team names"""
         try:
             team_members = []
-            for team, members in self.teams.items():
+            for team, members in self.TEAMS.items():
                 for member in members:
                     team_members.append(f"{member} ({team})")
             return sorted(team_members)
@@ -112,7 +112,7 @@ class Config:
             # Extract just the name without the team info in parentheses
             actual_name = member_name.split(" (")[0] if " (" in member_name else member_name
             
-            for team, members in self.teams.items():
+            for team, members in self.TEAMS.items():
                 if actual_name in members:
                     return team
             logging.warning(f"No team found for member: {actual_name}")
