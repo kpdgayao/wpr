@@ -2,6 +2,7 @@
 Utility functions for UI operations and styling.
 """
 import streamlit as st
+import pandas as pd
 from typing import Dict, List, Any, Optional
 
 def apply_custom_css() -> None:
