@@ -1,17 +1,32 @@
 # core/database.py
 import logging
 from typing import Dict, List, Any, Tuple, Optional
-from supabase import create_client
+from supabase import create_client, Client
 import pandas as pd
 from datetime import datetime
 import streamlit as st
 import json
+from supabase.lib.client_options import ClientOptions
 
 class DatabaseHandler:
     def __init__(self, supabase_url: str, supabase_key: str):
         """Initialize database connection"""
         try:
-            self.client = create_client(supabase_url, supabase_key)
+            # Initialize Supabase client with minimal options
+            options = ClientOptions(
+                schema='public',
+                headers={},
+                auto_refresh_token=True,
+                persist_session=True,
+                storage_key='storage-key',
+            )
+            
+            self.client = Client(
+                supabase_url=supabase_url,
+                supabase_key=supabase_key,
+                options=options
+            )
+            
             self.table_name = 'wpr_data'
             self.hr_table_name = 'hr_analysis'
             
@@ -134,7 +149,7 @@ class DatabaseHandler:
                 logging.info(f"Found {len(df)} submissions for {actual_name}")
                 for idx, row in df.iterrows():
                     logging.info(f"Row {idx}: Year={row['Year']}, Week={row['Week Number']}")
-            
+
             return df
                 
         except Exception as e:
@@ -444,4 +459,3 @@ class DatabaseHandler:
             
         except Exception as e:
             logging.error(f"Debug print error: {str(e)}")
-    
