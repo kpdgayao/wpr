@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 import anthropic
 from typing import Dict, Any
 import pandas as pd  
+import time  # Import time module
 
 # Import from our modules
 from config.settings import Config
@@ -662,15 +663,15 @@ class WPRApp:
                     st.error("Error processing submission.")
                     return
                 
+                # Show success message first
                 st.success("WPR submitted successfully! Check your email for a summary.")
-                
-                # Display HR analysis
-                self.display_hr_analysis(form_data['Name'])
+                st.balloons()  # Add some celebration
                 
                 # Reset form
                 st.session_state.form_data = {}
                 
                 # Rerun to refresh the page
+                time.sleep(2)  # Give time for success message to be seen
                 st.rerun()
                 
         except Exception as e:
