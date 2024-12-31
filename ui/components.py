@@ -169,7 +169,7 @@ class UIComponents:
         return projects
 
     @staticmethod
-    def display_productivity_section(config, defaults=None):
+    def display_productivity_section(config, defaults=None, edit_mode=False):
         """Display productivity evaluation section with default values"""
         if defaults is None:  # Initialize empty defaults if None
             defaults = {}
@@ -181,21 +181,28 @@ class UIComponents:
         try:
             current_value = defaults.get('productivity_rating')
             # If we have a valid current value, find its index in the options
-            if current_value in config.productivity_ratings:
-                default_index = config.productivity_ratings.index(current_value)
+            default_index = 0
+            if current_value:
+                if current_value in config.PRODUCTIVITY_RATINGS:
+                    default_index = config.PRODUCTIVITY_RATINGS.index(current_value)
+            
+            # Display productivity rating selector
+            if edit_mode:
+                productivity_rating = st.selectbox(
+                    "Productivity Rating",
+                    options=config.PRODUCTIVITY_RATINGS,
+                    value=config.PRODUCTIVITY_RATINGS[default_index]
+                )
             else:
-                default_index = 0  # Default to first option if value not found
-                
-            productivity_rating = st.select_slider(
-                "Rate your productivity this week",
-                options=config.productivity_ratings,
-                value=config.productivity_ratings[default_index]
-            )
+                productivity_rating = st.radio(
+                    "Productivity Rating",
+                    options=config.PRODUCTIVITY_RATINGS
+                )
         except (ValueError, IndexError) as e:
             logging.error(f"Error setting productivity slider value: {str(e)}")
             productivity_rating = st.select_slider(
                 "Rate your productivity this week",
-                options=config.productivity_ratings
+                options=config.PRODUCTIVITY_RATINGS
             )
         
         productivity_suggestions = st.multiselect(
