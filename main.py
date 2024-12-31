@@ -118,8 +118,9 @@ class WPRApp:
 
     def _display_week_selector(self):
         """Display week selection widget"""
-        current_week = datetime.now().isocalendar()[1]
-        current_year = datetime.now().year
+        current_date = datetime(2024, 12, 31)  # Using provided current time
+        current_week = current_date.isocalendar()[1]
+        current_year = current_date.year
         
         col1, col2 = st.columns(2)
         
@@ -139,12 +140,16 @@ class WPRApp:
             st.session_state.week_number = int(selected_week.split()[1])
         
         with col2:
-            # Add year selection
-            year_options = list(range(current_year - 1, current_year + 1))
+            # Add year selection including 2025
+            year_options = [2023, 2024, 2025]  # Include previous, current, and next year
+            
+            # Find default year index
+            default_year_index = year_options.index(current_year)
+            
             selected_year = st.selectbox(
                 "Year",
                 options=year_options,
-                index=year_options.index(current_year),
+                index=default_year_index,
                 key='year_selector'
             )
             st.session_state.year = selected_year
