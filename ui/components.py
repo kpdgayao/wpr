@@ -222,13 +222,13 @@ class UIComponents:
             # Handle productive time default value
             default_time = defaults.get('productive_time')
             time_index = (
-                config.time_slots.index(default_time) 
-                if default_time in config.time_slots 
+                config.TIME_SLOTS.index(default_time) 
+                if default_time in config.TIME_SLOTS 
                 else 0
             )
             productive_time = st.radio(
                 "Most productive time",
-                options=config.time_slots,
+                options=config.TIME_SLOTS,
                 index=time_index
             )
         
@@ -236,13 +236,13 @@ class UIComponents:
             # Handle productive place default value
             default_place = defaults.get('productive_place')
             place_index = (
-                config.work_locations.index(default_place)
-                if default_place in config.work_locations
+                config.WORK_LOCATIONS.index(default_place)
+                if default_place in config.WORK_LOCATIONS
                 else 0
             )
             productive_place = st.radio(
                 "Preferred work location",
-                options=config.work_locations,
+                options=config.WORK_LOCATIONS,
                 index=place_index
             )
         
