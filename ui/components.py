@@ -207,7 +207,7 @@ class UIComponents:
         
         productivity_suggestions = st.multiselect(
             "What would help improve your productivity?",
-            options=config.productivity_suggestions,
+            options=config.PRODUCTIVITY_SUGGESTIONS,
             default=defaults.get('productivity_suggestions', [])
         )
         
