@@ -697,8 +697,11 @@ class WPRApp:
             self.setup_page()
             self.initialize_session_state()
             
-            # Display header
-            self.ui.display_header(st.session_state.week_number)
+            # Get current week number for header display
+            current_week = datetime.now().isocalendar()[1]
+            
+            # Display header with current week
+            self.ui.display_header(current_week)
             
             # Name selection
             st.session_state.selected_name = st.selectbox(
@@ -708,7 +711,6 @@ class WPRApp:
             )
             
             if st.session_state.selected_name:
-                self.db.debug_print_submissions(st.session_state.selected_name)
                 self._handle_user_submission()
         
         except Exception as e:
