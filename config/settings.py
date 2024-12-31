@@ -16,9 +16,9 @@ class Config:
             self.SUPABASE_KEY = self._get_env_var("SUPABASE_KEY")
             
             # Email configuration (optional)
-            self.MAILJET_API_KEY = None
-            self.MAILJET_API_SECRET = None
-            self.ANTHROPIC_API_KEY = None
+            self.MAILJET_API_KEY = os.getenv("MAILJET_API_KEY")
+            self.MAILJET_API_SECRET = os.getenv("MAILJET_API_SECRET")
+            self.ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
             
             # Teams configuration
             self.TEAMS: Dict[str, List[str]] = {

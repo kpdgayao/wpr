@@ -48,12 +48,16 @@ class WPRApp:
             
             # Initialize components
             self.db = DatabaseHandler(self.config.SUPABASE_URL, self.config.SUPABASE_KEY)
-            self.email_handler = EmailHandler(
-                self.config.mailjet_api_key, 
-                self.config.mailjet_api_secret
-            )
-            self.ui = UIComponents()
-            self.validator = InputValidator()
+            
+            # Initialize email handler if credentials are available
+            if self.config.MAILJET_API_KEY and self.config.MAILJET_API_SECRET:
+                self.email_handler = EmailHandler(
+                    self.config.MAILJET_API_KEY,
+                    self.config.MAILJET_API_SECRET
+                )
+            else:
+                self.email_handler = None
+                logging.warning("Email handler not initialized - missing Mailjet credentials")
             
             # Set up AI components
             if not self.config.anthropic_api_key:
