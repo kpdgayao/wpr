@@ -80,24 +80,37 @@ class WPRApp:
             logging.error(f"Error initializing WPR application: {str(e)}")
             raise
 
-    def initialize_session_state(self) -> None:
+    def initialize_session_state(self):
         """Initialize or reset session state variables"""
+        if 'week_number' not in st.session_state:
+            st.session_state.week_number = datetime.now().isocalendar()[1]
+        if 'selected_name' not in st.session_state:
+            st.session_state.selected_name = ""
+        if 'edit_mode' not in st.session_state:
+            st.session_state.edit_mode = False
+        if 'edit_id' not in st.session_state:
+            st.session_state.edit_id = None
+        if 'form_submitted' not in st.session_state:
+            st.session_state.form_submitted = False
+            
+        # Clear form data if it was just submitted
+        if st.session_state.get('form_submitted', False):
+            st.session_state.form_data = {}
+            st.session_state.form_submitted = False
+        elif 'form_data' not in st.session_state:
+            st.session_state.form_data = {}
+            
         if 'initialized' not in st.session_state:
             current_week = datetime.now().isocalendar()[1]
             current_year = datetime.now().year
             st.session_state.update({
                 'initialized': True,
-                'selected_name': "",
-                'week_number': current_week,
                 'year': current_year,  # Add year to session state
-                'edit_mode': False,
-                'edit_id': None,
                 'show_task_section': False,
                 'show_project_section': False,
                 'show_productivity_section': False,
                 'show_peer_evaluation_section': False,
                 'submitted': False,
-                'form_data': {}
             })
 
     def _display_week_selector(self):
@@ -663,15 +676,15 @@ class WPRApp:
                     st.error("Error processing submission.")
                     return
                 
-                # Show success message first
+                # Show success message and mark form as submitted
+                st.session_state.form_submitted = True
                 st.success("WPR submitted successfully! Check your email for a summary.")
                 st.balloons()  # Add some celebration
                 
-                # Reset form
-                st.session_state.form_data = {}
+                # Give time for success message and balloons
+                time.sleep(3)
                 
-                # Rerun to refresh the page
-                time.sleep(2)  # Give time for success message to be seen
+                # Rerun to refresh the page with cleared form
                 st.rerun()
                 
         except Exception as e:
