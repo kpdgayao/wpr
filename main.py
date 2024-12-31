@@ -82,8 +82,13 @@ class WPRApp:
 
     def initialize_session_state(self):
         """Initialize or reset session state variables"""
+        # Use the provided current time
+        current_date = datetime(2024, 12, 31)
+        current_week = current_date.isocalendar()[1]
+        current_year = current_date.year
+        
         if 'week_number' not in st.session_state:
-            st.session_state.week_number = datetime.now().isocalendar()[1]
+            st.session_state.week_number = current_week
         if 'selected_name' not in st.session_state:
             st.session_state.selected_name = ""
         if 'edit_mode' not in st.session_state:
@@ -101,15 +106,13 @@ class WPRApp:
             st.session_state.form_data = {}
             
         if 'initialized' not in st.session_state:
-            current_week = datetime.now().isocalendar()[1]
-            current_year = datetime.now().year
             st.session_state.update({
                 'initialized': True,
                 'year': current_year,  # Add year to session state
                 'show_task_section': False,
                 'show_project_section': False,
                 'show_productivity_section': False,
-                'show_peer_evaluation_section': False,
+                'show_peer_section': False,
                 'submitted': False,
             })
 
@@ -698,7 +701,9 @@ class WPRApp:
             self.initialize_session_state()
             
             # Get current week number for header display
-            current_week = datetime.now().isocalendar()[1]
+            current_date = datetime(2024, 12, 31)  # Using the provided current time
+            current_week = current_date.isocalendar()[1]
+            logging.info(f"Current date: {current_date}, Week number: {current_week}")
             
             # Display header with current week
             self.ui.display_header(current_week)
