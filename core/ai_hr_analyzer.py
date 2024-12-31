@@ -60,11 +60,19 @@ class AIHRAnalyzer:
             logging.error(f"Error formatting peer evaluations: {str(e)}")
             return "Error processing peer evaluations"
         
-    def __init__(self, anthropic_api_key: str):
-        self.client = anthropic.Client(api_key=anthropic_api_key)
+    def __init__(self, anthropic_api_key: str = None):
+        """Initialize the AI HR Analyzer"""
+        self.client = None
+        if anthropic_api_key:
+            self.client = anthropic.Client(api_key=anthropic_api_key)
+        else:
+            logging.warning("No Anthropic API key provided - AI HR analysis will be disabled")
 
     def generate_hr_analysis(self, wpr_data: Dict[str, Any]) -> Dict[str, Any]:
         """Generate HR analysis using Claude AI"""
+        if not self.client:
+            logging.warning("AI HR analysis is disabled - no Anthropic client available")
+            return {}
         try:
             # Validate input data
             required_fields = ['Name', 'Team', 'Week Number', 'Year']
@@ -77,7 +85,7 @@ class AIHRAnalyzer:
 
             # Log analysis start
             logging.info(f"Starting HR analysis for {wpr_data['Name']} - Week {wpr_data['Week Number']}")
-            
+
             # Prepare the prompt for HR analysis
             hr_analysis_prompt = self._prepare_hr_analysis_prompt(wpr_data)
             
@@ -543,6 +551,7 @@ class AIHRAnalyzer:
                             'Growth Opportunities', 'Action Plan', 
                             'Team Collaboration', 'Wellness Check']
                             
+
             for section in required_sections:
                 if section not in response:
                     logging.warning(f"Missing section in AI response: {section}")

@@ -55,16 +55,24 @@ class WPRApp:
                     self.config.MAILJET_API_KEY,
                     self.config.MAILJET_API_SECRET
                 )
+                logging.info("Email handler initialized successfully")
             else:
                 self.email_handler = None
                 logging.warning("Email handler not initialized - missing Mailjet credentials")
             
             # Set up AI components
-            if not self.config.anthropic_api_key:
-                raise ValueError("Anthropic API key not found in configuration")
-                
-            self.anthropic_client = anthropic.Client(api_key=self.config.anthropic_api_key)
-            self.ai_hr_analyzer = AIHRAnalyzer(self.config.anthropic_api_key)
+            if not self.config.ANTHROPIC_API_KEY:
+                logging.warning("Anthropic API key not found - AI features will be disabled")
+                self.anthropic_client = None
+                self.ai_hr_analyzer = None
+            else:
+                self.anthropic_client = anthropic.Client(api_key=self.config.ANTHROPIC_API_KEY)
+                self.ai_hr_analyzer = AIHRAnalyzer(self.config.ANTHROPIC_API_KEY)
+                logging.info("AI components initialized successfully")
+            
+            # Initialize UI components
+            self.ui = UIComponents()
+            self.validator = InputValidator()
             
             logging.info("WPR application initialized successfully")
         except Exception as e:
