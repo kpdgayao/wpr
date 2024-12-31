@@ -343,7 +343,7 @@ class WPRApp:
                 return None
                 
             teammates = [
-                member for member in self.config.teams[team] 
+                member for member in self.config.TEAMS[team] 
                 if member != actual_name  # Compare with actual_name
             ]
             
