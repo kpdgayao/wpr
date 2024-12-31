@@ -47,7 +47,7 @@ class WPRApp:
             self.config = Config()
             
             # Initialize components
-            self.db = DatabaseHandler(self.config.supabase_url, self.config.supabase_key)
+            self.db = DatabaseHandler(self.config.SUPABASE_URL, self.config.SUPABASE_KEY)
             self.email_handler = EmailHandler(
                 self.config.mailjet_api_key, 
                 self.config.mailjet_api_secret
