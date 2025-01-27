@@ -19,63 +19,8 @@ class UIComponents:
     @staticmethod
     def load_custom_css():
         """Load custom CSS styles"""
-        custom_css = """
-            <style>
-                .title {
-                    font-size: 36px;
-                    font-weight: bold;
-                    color: #2E86C1;
-                    margin-bottom: 20px;
-                    text-align: center;
-                }
-                .section-header {
-                    font-size: 24px;
-                    font-weight: bold;
-                    color: #2E86C1;
-                    margin-top: 40px;
-                    margin-bottom: 20px;
-                }
-                .subsection-header {
-                    font-size: 20px;
-                    font-weight: bold;
-                    color: #2E86C1;
-                    margin-top: 30px;
-                    margin-bottom: 10px;
-                }
-                .success-message {
-                    font-size: 18px;
-                    font-weight: bold;
-                    color: #28B463;
-                    margin-top: 20px;
-                    padding: 10px;
-                    border-radius: 5px;
-                    background-color: #EAFAF1;
-                }
-                .warning-message {
-                    font-size: 18px;
-                    font-weight: bold;
-                    color: #F39C12;
-                    margin-top: 20px;
-                    padding: 10px;
-                    border-radius: 5px;
-                    background-color: #FEF9E7;
-                }
-                .stButton>button {
-                    background-color: #2E86C1;
-                    color: white;
-                    font-weight: bold;
-                    padding: 10px 20px;
-                    border-radius: 5px;
-                    border: none;
-                    transition: all 0.3s ease;
-                }
-                .stButton>button:hover {
-                    background-color: #21618C;
-                    transform: translateY(-2px);
-                }
-            </style>
-        """
-        st.markdown(custom_css, unsafe_allow_html=True)
+        from utils.ui_utils import apply_custom_css
+        apply_custom_css()
 
     @staticmethod
     def display_header(week_number: int):

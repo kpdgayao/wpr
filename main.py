@@ -6,6 +6,11 @@ import anthropic
 from typing import Dict, Any
 import pandas as pd  
 import time  # Import time module
+from utils.error_handler import handle_exceptions, format_error_message
+from utils.logging_config import setup_logging
+
+# Initialize logging
+setup_logging()
 
 # Import from our modules
 from config.settings import Config
@@ -51,15 +56,25 @@ class WPRApp:
             self.db = DatabaseHandler(self.config.SUPABASE_URL, self.config.SUPABASE_KEY)
             
             # Initialize email handler if credentials are available
-            if self.config.MAILJET_API_KEY and self.config.MAILJET_API_SECRET:
-                self.email_handler = EmailHandler(
-                    self.config.MAILJET_API_KEY,
-                    self.config.MAILJET_API_SECRET
-                )
-                logging.info("Email handler initialized successfully")
+            logging.info("Checking Mailjet credentials...")
+            if hasattr(self.config, 'MAILJET_API_KEY') and hasattr(self.config, 'MAILJET_API_SECRET'):
+                if self.config.MAILJET_API_KEY and self.config.MAILJET_API_SECRET:
+                    logging.info("Mailjet credentials found, initializing email handler...")
+                    try:
+                        self.email_handler = EmailHandler(
+                            self.config.MAILJET_API_KEY,
+                            self.config.MAILJET_API_SECRET
+                        )
+                        logging.info("Email handler initialized successfully")
+                    except Exception as e:
+                        logging.error(f"Failed to initialize email handler: {str(e)}")
+                        self.email_handler = None
+                else:
+                    logging.warning("Mailjet credentials are empty")
+                    self.email_handler = None
             else:
+                logging.warning("Mailjet credential attributes not found in config")
                 self.email_handler = None
-                logging.warning("Email handler not initialized - missing Mailjet credentials")
             
             # Set up AI components
             if not self.config.ANTHROPIC_API_KEY:
@@ -68,7 +83,7 @@ class WPRApp:
                 self.ai_hr_analyzer = None
             else:
                 self.anthropic_client = anthropic.Client(api_key=self.config.ANTHROPIC_API_KEY)
-                self.ai_hr_analyzer = AIHRAnalyzer(self.config.ANTHROPIC_API_KEY)
+                self.ai_hr_analyzer = AIHRAnalyzer(anthropic_api_key=self.config.ANTHROPIC_API_KEY)
                 logging.info("AI components initialized successfully")
             
             # Initialize UI components
@@ -82,8 +97,19 @@ class WPRApp:
 
     def initialize_session_state(self):
         """Initialize or reset session state variables"""
+        if 'submitted' not in st.session_state:
+            st.session_state.submitted = False
+        if 'edit_mode' not in st.session_state:
+            st.session_state.edit_mode = False
+        if 'edit_id' not in st.session_state:
+            st.session_state.edit_id = None
+        if 'form_data' not in st.session_state:
+            st.session_state.form_data = {}
+        if 'success_message' not in st.session_state:
+            st.session_state.success_message = None
+            
         # Use the provided current time
-        current_date = datetime(2024, 12, 31)
+        current_date = datetime.now()
         current_week = current_date.isocalendar()[1]
         current_year = current_date.year
         
@@ -91,20 +117,6 @@ class WPRApp:
             st.session_state.week_number = current_week
         if 'selected_name' not in st.session_state:
             st.session_state.selected_name = ""
-        if 'edit_mode' not in st.session_state:
-            st.session_state.edit_mode = False
-        if 'edit_id' not in st.session_state:
-            st.session_state.edit_id = None
-        if 'form_submitted' not in st.session_state:
-            st.session_state.form_submitted = False
-            
-        # Clear form data if it was just submitted
-        if st.session_state.get('form_submitted', False):
-            st.session_state.form_data = {}
-            st.session_state.form_submitted = False
-        elif 'form_data' not in st.session_state:
-            st.session_state.form_data = {}
-            
         if 'initialized' not in st.session_state:
             st.session_state.update({
                 'initialized': True,
@@ -113,49 +125,22 @@ class WPRApp:
                 'show_project_section': False,
                 'show_productivity_section': False,
                 'show_peer_section': False,
-                'submitted': False,
             })
 
-    def _display_week_selector(self):
-        """Display week selection widget"""
-        current_date = datetime(2024, 12, 31)  # Using provided current time
-        current_week = current_date.isocalendar()[1]
-        current_year = current_date.year
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            # Expand the range to include all weeks from 1 to 52
-            week_options = [f"Week {w}" for w in range(1, 53)]
-            
-            # Find the default index (current week or stored week number)
-            default_index = week_options.index(f"Week {st.session_state.week_number}")
-            
-            selected_week = st.selectbox(
-                "Select Week",
-                options=week_options,
-                index=default_index,
-                key='week_selector'
-            )
-            st.session_state.week_number = int(selected_week.split()[1])
-        
-        with col2:
-            # Add year selection including 2025
-            year_options = [2023, 2024, 2025]  # Include previous, current, and next year
-            
-            # Find default year index
-            default_year_index = year_options.index(current_year)
-            
-            selected_year = st.selectbox(
-                "Year",
-                options=year_options,
-                index=default_year_index,
-                key='year_selector'
-            )
-            st.session_state.year = selected_year
-
+    @handle_exceptions(error_types=(Exception,))
     def _handle_user_submission(self):
+        """Handle user form submission"""
         try:
+            # Create placeholders for messages
+            message_container = st.container()
+            
+            # Show any existing success message
+            if st.session_state.success_message:
+                message_container.success(st.session_state.success_message)
+                # Clear the message after showing it
+                st.session_state.success_message = None
+                return
+
             # Display week selector if not in edit mode
             if not st.session_state.edit_mode:
                 self._display_week_selector()
@@ -205,11 +190,8 @@ class WPRApp:
                                     self._display_submission_details(row)
                             
                             st.divider()
-                        
-                        # Debug information
-                        st.write(f"Debug - ID: {row['id']}, Year: {year}, Week: {week}")
             
-            # Get form inputs only if no existing submission
+            # Get form inputs
             form_data = self._collect_form_data()
             
             # Handle submission
@@ -217,11 +199,116 @@ class WPRApp:
                 if st.session_state.edit_mode:
                     self._process_edit_submission(form_data)
                 else:
-                    self._process_form_submission(form_data)
+                    try:
+                        # 1. Save data to database first
+                        data = self.db.save_wpr_data(form_data)
+                        logging.info(f"Data saved successfully: {data}")
+                        
+                        # 2. Show processing message
+                        with message_container:
+                            st.info("⏳ Processing your submission...")
+                        
+                        # 3. Generate AI analysis
+                        ai_analysis = None
+                        if self.ai_hr_analyzer is not None:
+                            try:
+                                analysis_result = self.ai_hr_analyzer.generate_hr_analysis(form_data)
+                                if analysis_result:
+                                    ai_analysis = analysis_result.get('analysis_content')
+                                    logging.info("AI analysis generated successfully")
+                            except Exception as e:
+                                logging.warning(f"Failed to generate HR analysis: {str(e)}")
+                        
+                        # 4. Send email notification
+                        email_sent = False
+                        if self.email_handler:
+                            try:
+                                email_sent = self.email_handler.send_wpr_notification(
+                                    to_email=form_data['user_email'],
+                                    to_name=form_data['Name'],
+                                    week_number=form_data['Week Number'],
+                                    year=form_data['Year'],
+                                    ai_analysis=ai_analysis
+                                )
+                            except Exception as e:
+                                logging.error(f"Failed to send email: {str(e)}")
+                        
+                        # 5. Set success message based on email status
+                        if email_sent:
+                            st.session_state.success_message = "✅ WPR submitted successfully! An email confirmation has been sent to your inbox."
+                        else:
+                            st.session_state.success_message = "✅ WPR submitted successfully!"
+                        
+                        # 6. Reset form state and show balloons
+                        st.session_state.submitted = True
+                        st.session_state.form_data = {}
+                        st.balloons()
+                        
+                        # 7. Rerun to show success message
+                        time.sleep(1)  # Give time for the message to be seen
+                        st.rerun()
+                        
+                        return True
+                        
+                    except Exception as e:
+                        logging.error(f"Error processing submission: {str(e)}")
+                        with message_container:
+                            st.error("❌ Error processing your submission. Please try again.")
+                        return False
         
         except Exception as e:
-            logging.error(f"Error handling submission: {str(e)}")
-            st.error("Error processing your submission. Please try again.")
+            logging.error(f"Error in form submission: {str(e)}")
+            with message_container:
+                st.error("An unexpected error occurred. Please try again.")
+
+    def _display_week_selector(self):
+        """Display week selection widget"""
+        current_date = datetime.now()  # Use current date
+        current_week = current_date.isocalendar()[1]
+        current_year = current_date.year
+        
+        # Update session state with current week if not already set
+        if 'week_number' not in st.session_state:
+            st.session_state.week_number = current_week
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # Expand the range to include all weeks from 1 to 52
+            week_options = [f"Week {w}" for w in range(1, 53)]
+            
+            # Find the default index (current week or stored week number)
+            default_index = week_options.index(f"Week {st.session_state.week_number}")
+            
+            selected_week = st.selectbox(
+                "Select Week",
+                options=week_options,
+                index=default_index,
+                key='week_selector'
+            )
+            st.session_state.week_number = int(selected_week.split()[1])
+        
+        with col2:
+            # Add year selection including current year and adjacent years
+            year_options = [current_year - 1, current_year, current_year + 1]
+            
+            # Initialize year in session state if not set
+            if 'year' not in st.session_state:
+                st.session_state.year = current_year
+            
+            # Find default year index
+            default_year_index = year_options.index(st.session_state.year)
+            
+            selected_year = st.selectbox(
+                "Year",
+                options=year_options,
+                index=default_year_index,
+                key='year_selector'
+            )
+            st.session_state.year = selected_year
+            
+        # Log current date and week information
+        logging.info(f"Current date: {current_date}, Week number: {current_week}")
 
     def _load_submission_for_edit(self, row: pd.Series):
         """Load existing submission data for editing"""
@@ -288,23 +375,26 @@ class WPRApp:
                     st.error("Error processing submission.")
                     return
                 
-                st.success("WPR updated successfully! Check your email for a summary.")
+                # Show success message and mark form as submitted
+                st.session_state.success_message = "✅ WPR updated successfully! Check your email for a summary."
+                st.balloons()  # Add some celebration
+                
+                # Give time for success message and balloons
+                time.sleep(1)
+                
+                # Rerun to refresh the page with cleared form
+                st.rerun()
                 
                 # Reset edit mode
                 st.session_state.edit_mode = False
                 st.session_state.edit_id = None
                 st.session_state.form_data = {}
                 
-                # Display HR analysis
-                self.display_hr_analysis(form_data['Name'])
-                
-                # Rerun to refresh the page
-                st.rerun()
-                
         except Exception as e:
             logging.error(f"Error processing edit submission: {str(e)}")
             st.error("Error processing your submission. Please try again.")
 
+    @handle_exceptions(error_types=(Exception,))
     def _collect_form_data(self):
         """Collect and validate form data"""
         try:
@@ -617,53 +707,118 @@ class WPRApp:
             </div>
             """
 
-    def display_hr_analysis(self, employee_name: str):
-        """Display HR analysis dashboard"""
-        try:
-            with st.spinner("Loading HR analysis..."):
-                # Get latest HR analysis
-                hr_history = self.db.get_hr_analysis_history(employee_name)
-                if not hr_history:
-                    st.warning("No HR analysis history found.")
-                    return
-
-                hr_analysis = hr_history[0]
-                historical_data = hr_history
-                
-                # Display dashboard
-                HRVisualizations.display_hr_dashboard(hr_analysis, historical_data)
-                
-                logging.info(f"HR analysis displayed successfully for {employee_name}")
-        except Exception as e:
-            logging.error(f"Error displaying HR analysis: {str(e)}")
-            st.error("Error displaying HR analysis dashboard.")
-
     def process_submission(self, data: Dict[str, Any], user_email: str) -> bool:
         try:
-            # Generate HR analysis
-            hr_analysis = self.ai_hr_analyzer.generate_hr_analysis(data)
+            hr_analysis = None
             
-            # Save HR analysis to database
-            self.db.save_hr_analysis(hr_analysis)
+            # Generate HR analysis if AI analyzer is available
+            if self.ai_hr_analyzer:
+                hr_analysis = self.ai_hr_analyzer.generate_hr_analysis(data)
+                # Save HR analysis to database if generated
+                if hr_analysis:
+                    self.db.save_hr_analysis(hr_analysis)
+            else:
+                logging.warning("AI HR analysis skipped - analyzer not available")
             
-            # Send HR analysis email
-            hr_email_content = self.email_handler.format_hr_analysis_email(
-                data['Name'],
-                data['Week Number'],
-                hr_analysis
-            )
+            # Send email notification if handler is available, regardless of AI analysis
+            if self.email_handler:
+                ai_analysis = None
+                if self.ai_hr_analyzer is not None:
+                    try:
+                        analysis_result = self.ai_hr_analyzer.generate_hr_analysis(data)
+                        if analysis_result:
+                            # Format AI analysis for email
+                            performance_metrics = analysis_result.get('performance_metrics', {})
+                            skill_assessment = analysis_result.get('skill_assessment', {})
+                            wellness = analysis_result.get('wellness_indicators', {})
+                            recommendations = analysis_result.get('growth_recommendations', {})
+                            team_dynamics = analysis_result.get('team_dynamics', {})
+                            
+                            # Clean up the recommendations list
+                            immediate_actions = recommendations.get('immediate_actions', [])
+                            if isinstance(immediate_actions, str):
+                                try:
+                                    immediate_actions = eval(immediate_actions)
+                                except:
+                                    immediate_actions = [immediate_actions]
+                            
+                            # Format the date
+                            current_date = datetime.now()
+                            formatted_date = current_date.strftime("%B %d, %Y")
+                            
+                            ai_analysis = f"""Weekly Performance Analysis
+Week {data['Week Number']} - {formatted_date}
+
+Achievement Highlights
+• Self-rated as "{data.get('Productivity Rating', 'N/A')}"
+• Task Completion Rate: {performance_metrics.get('task_completion_rate', 0):.0f}% ({len(data.get('Completed Tasks', []))} completed, {len(data.get('Pending Tasks', []))} pending)
+• Preferred Work Time: {data.get('Productive Time', 'Not specified')}
+• Workplace Effectiveness: Shows preference for {data.get('Productive Place', 'various')} environment
+
+Performance Metrics
+• Task Management: {len(data.get('Completed Tasks', []))} tasks completed, {len(data.get('Pending Tasks', []))} pending
+• Project Progress: {performance_metrics.get('project_progress', 0):.0f}% overall completion
+• Collaboration Score: {performance_metrics.get('collaboration_score', 'N/A')} based on peer evaluations
+• Productivity Rating: {performance_metrics.get('productivity_score', 'N/A')} out of 5
+
+Growth Opportunities
+"""
+                            # Add technical skills if available
+                            tech_skills = skill_assessment.get('technical_skills', [])
+                            if tech_skills and isinstance(tech_skills, list):
+                                ai_analysis += "• Technical Skills Development:\n"
+                                for skill in tech_skills:
+                                    if isinstance(skill, str):
+                                        ai_analysis += f"  • {skill}\n"
+                            
+                            # Add soft skills if available
+                            soft_skills = skill_assessment.get('soft_skills', [])
+                            if soft_skills and isinstance(soft_skills, list):
+                                ai_analysis += "• Soft Skills Enhancement:\n"
+                                for skill in soft_skills:
+                                    if isinstance(skill, str):
+                                        ai_analysis += f"  • {skill}\n"
+                            
+                            ai_analysis += f"""
+Action Plan"""
+                            # Add recommendations
+                            if immediate_actions and isinstance(immediate_actions, list):
+                                for i, action in enumerate(immediate_actions, 1):
+                                    if isinstance(action, str):
+                                        ai_analysis += f"\n• {action}"
+                            
+                            ai_analysis += f"""
+
+Team Collaboration
+• Team Impact: {team_dynamics.get('team_impact', 'Continue fostering team collaboration')}
+• Peer Feedback: {team_dynamics.get('peer_feedback_summary', 'Maintain open communication with team members')}
+
+Wellness Check
+• Workload Assessment: {wellness.get('workload_assessment', 'Balanced')}
+• Engagement Level: {wellness.get('engagement_level', 'Good')}
+• Work Environment: Effective utilization of {data.get('Productive Place', 'workspace')}
+• Peak Productivity: Observed during {data.get('Productive Time', 'working hours')}
+
+Generated by IOL HR Analysis System"""
+                    except Exception as e:
+                        logging.warning(f"Failed to generate HR analysis: {str(e)}")
+                        ai_analysis = None
+                
+                success = self.email_handler.send_wpr_notification(
+                    to_email=user_email,
+                    to_name=data['Name'],
+                    week_number=data['Week Number'],
+                    year=data['Year'],
+                    ai_analysis=ai_analysis
+                )
+                if not success:
+                    st.warning("⚠️ Failed to send email notification. Please check the logs for details.")
             
-            self.email_handler.send_email(
-                to_email=user_email,
-                to_name=data['Name'],
-                subject=f"HR Analysis Report - Week {data['Week Number']}",
-                html_content=hr_email_content
-            )
-            
-            # Display HR analysis dashboard
-            self.display_hr_analysis(data['Name'])
+            # Display HR analysis dashboard if analysis was generated
+            # Removed HR dashboard display
             
             return True
+        
         except Exception as e:
             logging.error(f"Error processing submission: {str(e)}")
             return False
@@ -685,12 +840,11 @@ class WPRApp:
                     return
                 
                 # Show success message and mark form as submitted
-                st.session_state.form_submitted = True
-                st.success("WPR submitted successfully! Check your email for a summary.")
+                st.session_state.success_message = "✅ WPR submitted successfully! Check your email for a summary."
                 st.balloons()  # Add some celebration
                 
                 # Give time for success message and balloons
-                time.sleep(3)
+                time.sleep(1)
                 
                 # Rerun to refresh the page with cleared form
                 st.rerun()
@@ -706,7 +860,7 @@ class WPRApp:
             self.initialize_session_state()
             
             # Get current week number for header display
-            current_date = datetime(2024, 12, 31)  # Using the provided current time
+            current_date = datetime.now()  # Using the current date
             current_week = current_date.isocalendar()[1]
             logging.info(f"Current date: {current_date}, Week number: {current_week}")
             

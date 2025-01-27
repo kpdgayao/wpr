@@ -70,3 +70,33 @@ def safe_get_nested(data: Dict[str, Any], keys: List[str], default: Any = None) 
         else:
             return default
     return data
+
+def process_wpr_data(data: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Comprehensive data processing function that combines validation,
+    formatting, and statistics calculation.
+    
+    Args:
+        data (Dict[str, Any]): Raw WPR data
+        
+    Returns:
+        Dict[str, Any]: Processed data with calculated metrics
+    """
+    processed_data = {}
+    
+    # Process timestamps
+    if 'timestamp' in data:
+        processed_data['formatted_timestamp'] = format_timestamp(data['timestamp'])
+    
+    # Calculate statistics if dataframe is provided
+    if isinstance(data.get('df'), pd.DataFrame):
+        processed_data.update(calculate_week_stats(data['df']))
+    
+    # Validate numeric columns if present
+    if isinstance(data.get('df'), pd.DataFrame) and 'numeric_columns' in data:
+        processed_data['df'] = validate_numeric_columns(
+            data['df'], 
+            data['numeric_columns']
+        )
+    
+    return processed_data

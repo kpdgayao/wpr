@@ -12,27 +12,14 @@ class DatabaseHandler:
     def __init__(self, supabase_url: str, supabase_key: str):
         """Initialize database connection"""
         try:
-            # Initialize Supabase client with minimal options
-            options = ClientOptions(
-                schema='public',
-                headers={},
-                auto_refresh_token=True,
-                persist_session=True
-            )
-            
-            self.client = Client(
-                supabase_url=supabase_url,
-                supabase_key=supabase_key,
-                options=options
+            # Initialize Supabase client
+            self.client = create_client(
+                supabase_url,
+                supabase_key
             )
             
             self.table_name = 'wpr_data'
             self.hr_table_name = 'hr_analysis'
-            
-            # Add unique constraint on Name, Week Number, and Year if it doesn't exist
-            # Note: This would need to be done at the Supabase database level
-            # CREATE UNIQUE INDEX IF NOT EXISTS unique_weekly_submission 
-            # ON wpr_data (Name, "Week Number", Year);
             
             logging.info("Database connection initialized successfully")
         except Exception as e:
@@ -82,12 +69,36 @@ class DatabaseHandler:
             # Add timestamp to data
             data['created_at'] = datetime.now().isoformat()
             
-            # Calculate number of tasks
-            data['Number of Completed Tasks'] = len(data.get('Completed Tasks', []))
-            data['Number of Pending Tasks'] = len(data.get('Pending Tasks', []))
-            data['Number of Dropped Tasks'] = len(data.get('Dropped Tasks', []))
+            # Process task lists before JSON conversion
+            completed_tasks = data.get('Completed Tasks', [])
+            pending_tasks = data.get('Pending Tasks', [])
+            dropped_tasks = data.get('Dropped Tasks', [])
             
-            # Convert lists to JSONB format
+            # Ensure tasks are in list format
+            if isinstance(completed_tasks, str):
+                completed_tasks = [t.strip() for t in completed_tasks.split('\n') if t.strip()]
+            if isinstance(pending_tasks, str):
+                pending_tasks = [t.strip() for t in pending_tasks.split('\n') if t.strip()]
+            if isinstance(dropped_tasks, str):
+                dropped_tasks = [t.strip() for t in dropped_tasks.split('\n') if t.strip()]
+            
+            # Update task lists in data
+            data['Completed Tasks'] = completed_tasks
+            data['Pending Tasks'] = pending_tasks
+            data['Dropped Tasks'] = dropped_tasks
+            
+            # Calculate and store task counts
+            data['Number of Completed Tasks'] = len(completed_tasks)
+            data['Number of Pending Tasks'] = len(pending_tasks)
+            data['Number of Dropped Tasks'] = len(dropped_tasks)
+            
+            # Log task information
+            logging.info(f"Processing tasks for {data['Name']}")
+            logging.info(f"Completed tasks ({len(completed_tasks)}): {completed_tasks}")
+            logging.info(f"Pending tasks ({len(pending_tasks)}): {pending_tasks}")
+            logging.info(f"Dropped tasks ({len(dropped_tasks)}): {dropped_tasks}")
+            
+            # Convert lists to JSONB format after counting
             json_fields = [
                 'Completed Tasks', 'Pending Tasks', 'Dropped Tasks',
                 'Productivity Suggestions', 'Projects', 'Peer_Evaluations'
@@ -99,8 +110,13 @@ class DatabaseHandler:
             
             logging.info(f"Saving data for {data.get('Name')}, Week {data.get('Week Number')}")
             result = self.client.table(self.table_name).insert(data).execute()
-            logging.info(f"Data saved successfully: {result}")
-            return True
+            
+            if result.data:
+                logging.info(f"Successfully saved data with task counts - Completed: {data['Number of Completed Tasks']}, "
+                           f"Pending: {data['Number of Pending Tasks']}, Dropped: {data['Number of Dropped Tasks']}")
+                return True
+            return False
+            
         except Exception as e:
             logging.error(f"Error saving data: {str(e)}")
             if hasattr(e, '__dict__'):
@@ -327,15 +343,36 @@ class DatabaseHandler:
     def update_data(self, data: Dict[str, Any], record_id: int) -> bool:
         """Update existing WPR data"""
         try:
-            # Update timestamp
-            data['created_at'] = datetime.now().isoformat()
+            # Process task lists before JSON conversion
+            completed_tasks = data.get('Completed Tasks', [])
+            pending_tasks = data.get('Pending Tasks', [])
+            dropped_tasks = data.get('Dropped Tasks', [])
             
-            # Calculate number of tasks
-            data['Number of Completed Tasks'] = len(data.get('Completed Tasks', []))
-            data['Number of Pending Tasks'] = len(data.get('Pending Tasks', []))
-            data['Number of Dropped Tasks'] = len(data.get('Dropped Tasks', []))
+            # Ensure tasks are in list format
+            if isinstance(completed_tasks, str):
+                completed_tasks = [t.strip() for t in completed_tasks.split('\n') if t.strip()]
+            if isinstance(pending_tasks, str):
+                pending_tasks = [t.strip() for t in pending_tasks.split('\n') if t.strip()]
+            if isinstance(dropped_tasks, str):
+                dropped_tasks = [t.strip() for t in dropped_tasks.split('\n') if t.strip()]
             
-            # Convert lists to JSONB format
+            # Update task lists in data
+            data['Completed Tasks'] = completed_tasks
+            data['Pending Tasks'] = pending_tasks
+            data['Dropped Tasks'] = dropped_tasks
+            
+            # Calculate and store task counts
+            data['Number of Completed Tasks'] = len(completed_tasks)
+            data['Number of Pending Tasks'] = len(pending_tasks)
+            data['Number of Dropped Tasks'] = len(dropped_tasks)
+            
+            # Log task information
+            logging.info(f"Updating tasks for record {record_id}")
+            logging.info(f"Completed tasks ({len(completed_tasks)}): {completed_tasks}")
+            logging.info(f"Pending tasks ({len(pending_tasks)}): {pending_tasks}")
+            logging.info(f"Dropped tasks ({len(dropped_tasks)}): {dropped_tasks}")
+            
+            # Convert lists to JSONB format after counting
             json_fields = [
                 'Completed Tasks', 'Pending Tasks', 'Dropped Tasks',
                 'Productivity Suggestions', 'Projects', 'Peer_Evaluations'
@@ -345,17 +382,21 @@ class DatabaseHandler:
                 if field in data:
                     data[field] = json.dumps(data[field])
             
-            logging.info(f"Updating data for {data.get('Name')}, Week {data.get('Week Number')}")
             result = self.client.table(self.table_name)\
                 .update(data)\
                 .eq('id', record_id)\
                 .execute()
-            logging.info(f"Data updated successfully: {result}")
-            return True
+                
+            if result.data:
+                logging.info(f"Successfully updated record {record_id} with task counts - "
+                           f"Completed: {data['Number of Completed Tasks']}, "
+                           f"Pending: {data['Number of Pending Tasks']}, "
+                           f"Dropped: {data['Number of Dropped Tasks']}")
+                return True
+            return False
+            
         except Exception as e:
             logging.error(f"Error updating data: {str(e)}")
-            if hasattr(e, '__dict__'):
-                logging.error(f"Detailed error: {e.__dict__}")
             return False
 
     def get_submission_by_id(self, record_id: int) -> Dict[str, Any]:

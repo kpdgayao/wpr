@@ -7,6 +7,8 @@ import time
 import platform
 import html
 import json
+import re
+from utils.error_handler import handle_exceptions
 
 # At the top of the file, after imports
 logging.basicConfig(
@@ -19,6 +21,15 @@ logging.basicConfig(
 )
 
 class AIHRAnalyzer:
+    def __init__(self, anthropic_api_key: str = None):
+        """Initialize the AI HR Analyzer"""
+        self.client = None
+        if anthropic_api_key:
+            self.client = anthropic.Client(api_key=anthropic_api_key)
+            logging.info("AI HR Analyzer initialized successfully")
+        else:
+            logging.warning("No Anthropic API key provided - AI HR analysis will be disabled")
+
     def _safe_parse_json(self, json_str: str) -> Dict:
         """Safely parse JSON string with error handling"""
         try:
@@ -60,204 +71,213 @@ class AIHRAnalyzer:
             logging.error(f"Error formatting peer evaluations: {str(e)}")
             return "Error processing peer evaluations"
         
-    def __init__(self, anthropic_api_key: str = None):
-        """Initialize the AI HR Analyzer"""
-        self.client = None
-        if anthropic_api_key:
-            self.client = anthropic.Client(api_key=anthropic_api_key)
-        else:
-            logging.warning("No Anthropic API key provided - AI HR analysis will be disabled")
-
     def generate_hr_analysis(self, wpr_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Generate HR analysis using Claude AI"""
+        """Generate comprehensive HR analysis using Claude AI"""
         if not self.client:
             logging.warning("AI HR analysis is disabled - no Anthropic client available")
             return {}
+            
         try:
-            # Validate input data
-            required_fields = ['Name', 'Team', 'Week Number', 'Year']
-            for field in required_fields:
-                if field not in wpr_data:
-                    raise ValueError(f"Missing required field: {field}")
-
-            # Ensure all data fields are in the correct format
-            wpr_data = self._sanitize_data(wpr_data)
-
-            # Log analysis start
-            logging.info(f"Starting HR analysis for {wpr_data['Name']} - Week {wpr_data['Week Number']}")
-
-            # Prepare the prompt for HR analysis
-            hr_analysis_prompt = self._prepare_hr_analysis_prompt(wpr_data)
+            # Extract employee name with multiple fallbacks
+            employee_name = (
+                wpr_data.get('Name') or 
+                wpr_data.get('name') or 
+                wpr_data.get('Employee Name') or 
+                wpr_data.get('employee_name')
+            )
             
-            # Get AI response
-            response = self._retry_ai_request(hr_analysis_prompt)
+            if not employee_name:
+                logging.error("Employee name not found in WPR data")
+                raise ValueError("Missing employee name in WPR data")
             
-            # Validate AI response
-            if not response or not response.content:
-                raise ValueError("Empty response from AI service")
-                
-            ai_response = response.content[0].text
+            # Remove team info from name if present
+            employee_name = employee_name.split(" (")[0] if " (" in employee_name else employee_name
             
-            # Validate response format
-            if not ai_response or len(ai_response) < 100:
-                raise ValueError("Invalid or too short AI response")
-                
-            ai_response = self._validate_html_response(ai_response)
+            # Log the extracted name
+            logging.info(f"Processing HR analysis for employee: {employee_name}")
             
-            # Create structured analysis result
+            # Calculate enhanced metrics
+            enhanced_metrics = self._calculate_metrics(wpr_data)
+            
+            # Log the metrics
+            logging.info(f"Calculated metrics for {employee_name}: {json.dumps(enhanced_metrics, indent=2)}")
+            
+            # Create analysis result
             analysis_result = {
-                'performance_metrics': {
-                    'productivity_score': self._parse_productivity_rating(wpr_data.get('Productivity Rating', '1')),
-                    'task_completion_rate': self._calculate_task_completion_rate(wpr_data),
-                    'project_progress': self._calculate_project_progress(wpr_data),
-                    'collaboration_score': self._calculate_collaboration_score(wpr_data)
+                'performance_metrics': enhanced_metrics,
+                'employee_data': {
+                    'name': employee_name,
+                    'team': wpr_data.get('Team', 'Unknown'),
+                    'week_number': wpr_data.get('Week Number', 0),
+                    'year': wpr_data.get('Year', datetime.now().year)
                 },
-                'skill_assessment': {
-                    'technical_skills': self._extract_technical_skills(wpr_data),
-                    'soft_skills': self._extract_soft_skills(wpr_data),
-                    'development_areas': [],
-                    'strengths': []
-                },
-                'wellness_indicators': {
-                    'work_life_balance': 'Good',
-                    'workload_assessment': self._assess_workload(wpr_data),
-                    'engagement_level': self._assess_engagement(wpr_data)
-                },
-                'growth_recommendations': {
-                    'immediate_actions': wpr_data.get('Productivity Suggestions', []),
-                    'development_goals': [],
-                    'training_needs': []
-                },
-                'team_dynamics': {
-                    'collaboration_pattern': self._analyze_collaboration(wpr_data),
-                    'peer_feedback_summary': self._summarize_peer_feedback(wpr_data),
-                    'team_impact': ''
-                },
-                'risk_factors': {
-                    'burnout_risk': 'Low',
-                    'retention_risk': 'Low',
-                    'performance_trend': 'Stable'
-                },
-                'completion_metrics': {
-                'tasks_analyzed': len(wpr_data.get('Completed Tasks', [])) + 
-                                len(wpr_data.get('Pending Tasks', [])) + 
-                                len(wpr_data.get('Dropped Tasks', [])),
-                'projects_analyzed': len(wpr_data.get('Projects', [])),
-                'peer_evaluations_count': len(wpr_data.get('Peer_Evaluations', {})),
-                'analysis_completion': 100.0  # Percentage of analysis completed
-                },
-                'analysis_timestamp': datetime.now().isoformat(),
-                'employee_name': wpr_data.get('Name', 'Unknown'),  # Change from direct access
-                'week_number': wpr_data.get('Week Number', 0),     # Change from direct access
-                'year': wpr_data.get('Year', datetime.now().year), # Change from direct access
-                'team': wpr_data.get('Team', 'Unknown'),           # Change from direct access
-                'ai_analysis': ai_response,  # Include the AI analysis response
+                'analysis_content': self._generate_analysis_text(wpr_data, enhanced_metrics),
                 'metadata': {
-                    'version': '1.0',
-                    'model': "claude-3-5-sonnet-20241022",
-                    'analysis_timestamp': datetime.now().isoformat(),
-                    'system_info': {
-                        'python_version': platform.python_version(),
-                        'anthropic_version': anthropic.__version__
-                    }
+                    'version': '2.0',
+                    'timestamp': datetime.now().isoformat(),
+                    'model': "claude-3-5-sonnet-20241022"
                 }
             }
             
-            logging.info(f"Starting HR analysis for {wpr_data.get('Name', 'Unknown')} - Week {wpr_data.get('Week Number', 'N/A')}")
+            # Try to save the analysis
+            if self.save_hr_analysis(wpr_data, analysis_result):
+                logging.info(f"HR analysis saved successfully for {employee_name}")
+            else:
+                logging.warning(f"Failed to save HR analysis for {employee_name}")
+            
             return analysis_result
 
         except Exception as e:
             logging.error(f"Error generating HR analysis: {str(e)}")
-            raise
+            return {}
 
-    def _sanitize_data(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        """Sanitize and validate input data"""
+    def _calculate_metrics(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Calculate all metrics from WPR data."""
         try:
-            sanitized = data.copy()
+            # Get task counts directly from the fields
+            completed_count = int(data.get('Number of Completed Tasks', 0))
+            pending_count = int(data.get('Number of Pending Tasks', 0))
+            dropped_count = int(data.get('Number of Dropped Tasks', 0))
             
-            # Ensure lists are actually lists
-            list_fields = ['Completed Tasks', 'Pending Tasks', 'Dropped Tasks']
-            for field in list_fields:
-                if field in sanitized:
-                    if isinstance(sanitized[field], str):
-                        sanitized[field] = [task.strip() for task in sanitized[field].split('\n') if task.strip()]
-                    elif not isinstance(sanitized[field], list):
-                        sanitized[field] = []
-
-            # Ensure Projects is properly formatted
-            if 'Projects' in sanitized:
-                if isinstance(sanitized['Projects'], str):
-                    sanitized['Projects'] = self._parse_projects_string(sanitized['Projects'])
-                elif not isinstance(sanitized['Projects'], list):
-                    sanitized['Projects'] = []
-
-            # Ensure Peer_Evaluations is a dictionary
-            if 'Peer_Evaluations' in sanitized:
-                if not isinstance(sanitized['Peer_Evaluations'], dict):
-                    sanitized['Peer_Evaluations'] = {}
-
-            return sanitized
+            # Log raw task counts
+            logging.info(f"Raw task counts from data - "
+                        f"Completed: {completed_count}, "
+                        f"Pending: {pending_count}, "
+                        f"Dropped: {dropped_count}")
+            
+            # Calculate totals
+            total_tasks = completed_count + pending_count + dropped_count
+            
+            # Calculate completion rate (avoid division by zero)
+            completion_rate = (completed_count / total_tasks * 100) if total_tasks > 0 else 0
+            
+            # Get project progress from Projects field
+            try:
+                projects = data.get('Projects', [])
+                if isinstance(projects, str):
+                    projects = json.loads(projects)
+                avg_progress = sum(float(p.get('completion', 0)) for p in projects) / len(projects) if projects else 0
+            except Exception as e:
+                logging.error(f"Error calculating project progress: {str(e)}")
+                avg_progress = 0
+            
+            # Get productivity rating (1-5 scale)
+            try:
+                rating_str = str(data.get('Productivity Rating', '0'))
+                rating_match = re.search(r'(\d+(?:\.\d+)?)', rating_str)
+                rating = float(rating_match.group(1)) if rating_match else 0
+            except Exception as e:
+                logging.error(f"Error parsing productivity rating: {str(e)}")
+                rating = 0
+            
+            metrics = {
+                'task_completion_rate': round(completion_rate, 1),
+                'completed_tasks': completed_count,
+                'pending_tasks': pending_count,
+                'dropped_tasks': dropped_count,
+                'total_tasks': total_tasks,
+                'project_progress': round(avg_progress, 1),
+                'productivity_rating': rating
+            }
+            
+            # Log calculated metrics
+            logging.info(f"Calculated metrics: {json.dumps(metrics, indent=2)}")
+            return metrics
+            
         except Exception as e:
-            logging.error(f"Error sanitizing data: {str(e)}")
-            raise
-
-    def _parse_projects_string(self, projects_str: str) -> List[Dict[str, Any]]:
-        """Parse projects string into list of dictionaries"""
-        try:
-            projects = []
-            lines = [line.strip() for line in projects_str.split('\n') if line.strip()]
-            for line in lines:
-                if ',' in line:
-                    name, completion = line.split(',', 1)
-                    completion = completion.strip().replace('%', '')
-                    try:
-                        completion = float(completion)
-                    except ValueError:
-                        completion = 0
-                    projects.append({
-                        'name': name.strip(),
-                        'completion': completion
-                    })
-            return projects
-        except Exception as e:
-            logging.error(f"Error parsing projects string: {str(e)}")
-            return []
-
-    def _parse_productivity_rating(self, rating: str) -> float:
-        """Parse productivity rating string to float"""
-        try:
-            if isinstance(rating, (int, float)):
-                return float(rating)
-            if isinstance(rating, str):
-                # Extract first number from string (e.g., "4 - Very Productive" -> 4)
-                import re
-                numbers = re.findall(r'\d+', rating)
-                if numbers:
-                    return float(numbers[0])
-            return 1.0
-        except (ValueError, IndexError):
-            return 1.0
+            logging.error(f"Error calculating metrics: {str(e)}")
+            return {
+                'task_completion_rate': 0,
+                'completed_tasks': 0,
+                'pending_tasks': 0,
+                'dropped_tasks': 0,
+                'total_tasks': 0,
+                'project_progress': 0,
+                'productivity_rating': 0
+            }
 
     def _calculate_task_completion_rate(self, data: Dict[str, Any]) -> float:
-        """Calculate task completion rate"""
+        """Calculate task completion rate for the current week's submission."""
+        metrics = self._calculate_metrics(data)
+        return metrics['task_completion_rate']
+
+    def _calculate_efficiency(self, data: Dict[str, Any]) -> float:
+        """Calculate task efficiency score"""
         try:
-            completed = len(data.get('Completed Tasks', []))
-            total = (completed + 
-                    len(data.get('Pending Tasks', [])) + 
-                    len(data.get('Dropped Tasks', [])))
-            return round((completed / total * 100) if total > 0 else 0, 2)
+            completed_tasks = len(data.get('Completed Tasks', []))
+            total_tasks = (completed_tasks + 
+                         len(data.get('Pending Tasks', [])) + 
+                         len(data.get('Dropped Tasks', [])))
+            return round((completed_tasks / total_tasks * 5) if total_tasks > 0 else 0, 2)
         except Exception as e:
-            logging.error(f"Error calculating task completion rate: {str(e)}")
+            logging.error(f"Error calculating efficiency: {str(e)}")
+            return 0.0
+
+    def _analyze_team_contribution(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Analyze team contribution metrics"""
+        try:
+            peer_evals = data.get('Peer_Evaluations', {})
+            return {
+                'rating': self._calculate_collaboration_score(data),
+                'feedback_count': len(peer_evals),
+                'engagement_level': self._assess_engagement(data)
+            }
+        except Exception as e:
+            logging.error(f"Error analyzing team contribution: {str(e)}")
+            return {'rating': 0, 'feedback_count': 0, 'engagement_level': 'Not available'}
+
+    def _analyze_time_utilization(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Analyze time utilization patterns"""
+        try:
+            return {
+                'productive_time': data.get('Productive Time', 'Not specified'),
+                'preferred_location': data.get('Productive Place', 'Not specified'),
+                'efficiency_indicator': self._calculate_efficiency(data)
+            }
+        except Exception as e:
+            logging.error(f"Error analyzing time utilization: {str(e)}")
+            return {}
+
+    def _calculate_average_completion(self, data: Dict[str, Any]) -> float:
+        """Calculate average project completion percentage"""
+        try:
+            projects = data.get('Projects', [])
+            if isinstance(projects, str):
+                projects = self._parse_projects_string(projects)
+            if not projects:
+                return 0.0
+            total_completion = 0
+            count = 0
+            for p in projects:
+                try:
+                    completion = float(p.get('completion', 0))
+                    total_completion += completion
+                    count += 1
+                except (ValueError, TypeError):
+                    logging.warning(f"Invalid completion value in project: {p}")
+            return round(total_completion / count if count > 0 else 0, 2)
+        except Exception as e:
+            logging.error(f"Error calculating average completion: {str(e)}")
             return 0.0
 
     def _calculate_project_progress(self, data: Dict[str, Any]) -> float:
         """Calculate average project progress"""
         try:
             projects = data.get('Projects', [])
+            if isinstance(projects, str):
+                projects = self._parse_projects_string(projects)
             if not projects:
                 return 0.0
-            total_progress = sum(p.get('completion', 0) for p in projects)
-            return round(total_progress / len(projects), 2)
+            total_progress = 0
+            count = 0
+            for p in projects:
+                try:
+                    completion = float(p.get('completion', 0))
+                    total_progress += completion
+                    count += 1
+                except (ValueError, TypeError):
+                    logging.warning(f"Invalid completion value in project: {p}")
+            return round(total_progress / count if count > 0 else 0, 2)
         except Exception as e:
             logging.error(f"Error calculating project progress: {str(e)}")
             return 0.0
@@ -372,88 +392,15 @@ class AIHRAnalyzer:
             logging.error(f"Error summarizing peer feedback: {str(e)}")
             return "Unable to summarize peer feedback"
 
-    def _format_list(self, items: List[str]) -> str:
-        """Format a list of items into a string"""
-        if not items:
-            return "None"
-        return "\n".join(f"- {item}" for item in items)
-
-    def _format_projects(self, projects: List[Dict[str, Any]]) -> str:
-        """Format projects into a string"""
-        try:
-            # If projects is a string, try to parse it into a list of dictionaries
-            if isinstance(projects, str):
-                # Split the string by newlines and parse each line
-                project_lines = [p.strip() for p in projects.split('\n') if p.strip()]
-                parsed_projects = []
-                for line in project_lines:
-                    if ',' in line:
-                        name, completion = line.split(',', 1)
-                        completion = completion.strip().replace('%', '')
-                        try:
-                            completion = float(completion)
-                        except ValueError:
-                            completion = 0
-                        parsed_projects.append({
-                            'name': name.strip(),
-                            'completion': completion
-                        })
-                projects = parsed_projects
-
-            # If projects is empty or invalid
-            if not projects:
-                return "No projects reported"
-
-            # Format the projects
-            return "\n".join(
-                f"- {p.get('name', 'Unnamed')}: {p.get('completion', 0)}% complete" 
-                for p in projects
-            )
-        except Exception as e:
-            logging.error(f"Error formatting projects: {str(e)}")
-            return "Error formatting projects"
-
-    def _prepare_hr_analysis_prompt(self, wpr_data: Dict[str, Any]) -> str:
-        """Prepare the prompt for HR analysis"""
-        try:
-            # Format the WPR data into a structured prompt
-            prompt = f"""
-            Please analyze this Weekly Productivity Report for {wpr_data.get('Name', 'Unknown')} (Team: {wpr_data.get('Team', 'Unknown')}) 
-            for Week {wpr_data.get('Week Number', 'N/A')}, {wpr_data.get('Year', 'N/A')}.
-
-            TASKS:
-            Completed Tasks:
-            {self._format_list(wpr_data.get('Completed Tasks', []))}
-
-            Pending Tasks:
-            {self._format_list(wpr_data.get('Pending Tasks', []))}
-
-            Dropped Tasks:
-            {self._format_list(wpr_data.get('Dropped Tasks', []))}
-
-            PROJECTS:
-            {self._format_projects(wpr_data.get('Projects', []))}
-
-            PRODUCTIVITY:
-            Rating: {wpr_data.get('Productivity Rating', 'Not specified')}
-            Details: {wpr_data.get('Productivity Details', 'Not provided')}
-            Most Productive Time: {wpr_data.get('Productive Time', 'Not specified')}
-            Preferred Work Location: {wpr_data.get('Productive Place', 'Not specified')}
-
-            PEER EVALUATIONS:
-            {self._format_peer_evaluations(wpr_data.get('Peer_Evaluations', {}))}
-            """
-            
-            logging.info(f"HR analysis prompt prepared for {wpr_data.get('Name', 'Unknown')}")
-            return prompt
-
-        except Exception as e:
-            logging.error(f"Error preparing HR analysis prompt: {str(e)}")
-            raise
-
     def _retry_ai_request(self, prompt: str, max_retries: int = 3, timeout: int = 30) -> Any:
         """Retry AI request with exponential backoff"""
-        system_prompt = """You are an empathetic HR productivity expert and career coach for IOL Inc. 
+        for attempt in range(max_retries):
+            try:
+                # Create a dictionary of request parameters
+                request_params = {
+                    "model": "claude-3-5-sonnet-20241022",
+                    "max_tokens": 8000,
+                    "system": """You are an empathetic HR productivity expert and career coach for IOL Inc. 
         Your role is to analyze Weekly Productivity Reports and provide detailed, constructive feedback.
 
         Please ensure your analysis:
@@ -465,52 +412,52 @@ class AIHRAnalyzer:
         6. Addresses both technical and soft skills
         7. Includes wellness and work-life balance considerations
 
-        Format your response using the following HTML structure:
-        <div style="font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px;">
-            <h2 style="color: #2E86C1; border-bottom: 2px solid #2E86C1; padding-bottom: 10px;">Weekly Performance Analysis</h2>
-            
-            <div style="background-color: #EBF5FB; padding: 15px; border-radius: 5px; margin: 15px 0;">
-                <h3 style="color: #2471A3; margin-top: 0;">Achievement Highlights</h3>
-                [Content]
-            </div>
-            
-            <div style="background-color: #F4F6F7; padding: 15px; border-radius: 5px; margin: 15px 0;">
-                <h3 style="color: #2471A3; margin-top: 0;">Performance Metrics</h3>
-                [Content]
-            </div>
-            
-            <div style="background-color: #EBF5FB; padding: 15px; border-radius: 5px; margin: 15px 0;">
-                <h3 style="color: #2471A3; margin-top: 0;">Growth Opportunities</h3>
-                [Content]
-            </div>
-            
-            <div style="background-color: #F4F6F7; padding: 15px; border-radius: 5px; margin: 15px 0;">
-                <h3 style="color: #2471A3; margin-top: 0;">Action Plan</h3>
-                [Content]
-            </div>
-            
-            <div style="background-color: #EBF5FB; padding: 15px; border-radius: 5px; margin: 15px 0;">
-                <h3 style="color: #2471A3; margin-top: 0;">Team Collaboration</h3>
-                [Content]
-            </div>
-            
-            <div style="background-color: #F4F6F7; padding: 15px; border-radius: 5px; margin: 15px 0;">
-                <h3 style="color: #2471A3; margin-top: 0;">Wellness Check</h3>
-                [Content]
-            </div>
-            
-            <div style="border-top: 2px solid #2E86C1; margin-top: 20px; padding-top: 10px; font-style: italic; color: #2E86C1;">
-                Generated by IOL HR Analysis System
-            </div>
-        </div>"""
+        Please format your response in a clear, structured way using bullet points (•) and proper spacing.
+        Use this structure for your analysis:
 
-        for attempt in range(max_retries):
-            try:
-                # Create a dictionary of request parameters
-                request_params = {
-                    "model": "claude-3-5-sonnet-20241022",
-                    "max_tokens": 4000,
-                    "system": system_prompt,
+        Weekly Performance Analysis
+        Week [X] - [Date]
+
+        Achievement Highlights
+        • [Point 1]
+        • [Point 2]
+        ...
+
+        Performance Metrics
+        • [Metric 1]
+        • [Metric 2]
+        ...
+
+        Growth Opportunities
+        • [Opportunity 1]
+        • [Opportunity 2]
+        ...
+
+        Action Plan
+        • [Action 1]
+        • [Action 2]
+        ...
+
+        Team Collaboration
+        • [Point 1]
+        • [Point 2]
+        ...
+
+        Wellness Check
+        • [Point 1]
+        • [Point 2]
+        ...
+
+        Generated by IOL HR Analysis System
+
+        Important formatting rules:
+        1. Use bullet points (•) consistently
+        2. Maintain proper spacing between sections (one blank line)
+        3. Keep bullet points aligned
+        4. Use clear section headers
+        5. Ensure all text is properly formatted and readable
+        6. Avoid using markdown or other special formatting
+        """,
                     "messages": [{
                         "role": "user",
                         "content": prompt
@@ -574,3 +521,365 @@ class AIHRAnalyzer:
         except Exception as e:
             logging.error(f"Error sanitizing HTML content: {str(e)}")
             return ""
+
+    def _prepare_enhanced_prompt(self, data: Dict[str, Any], metrics: Dict[str, Any]) -> str:
+        """Prepare enhanced analysis prompt with metrics"""
+        try:
+            # Ensure we have valid data
+            sanitized_data = self._sanitize_data(data)
+            
+            # Format the prompt with proper error handling
+            prompt = f"""
+            Weekly Performance Analysis Request for {sanitized_data.get('Name', 'Unknown')}
+            
+            EMPLOYEE INFORMATION:
+            Team: {sanitized_data.get('Team', 'Unknown')}
+            Week: {sanitized_data.get('Week Number', 'N/A')}
+            Year: {sanitized_data.get('Year', 'N/A')}
+
+            PERFORMANCE METRICS:
+            Task Completion Rate: {metrics.get('task_completion_rate', 0)}%
+            Project Progress Rate: {metrics.get('project_progress', 0)}%
+            Peer Rating: {self._calculate_collaboration_score(sanitized_data)}/5
+            Productivity Self-Rating: {metrics.get('productivity_rating', 0)}/5
+
+            DETAILED DATA:
+            
+            Completed Tasks:
+            {self._format_list(sanitized_data.get('Completed Tasks', []))}
+
+            Pending Tasks:
+            {self._format_list(sanitized_data.get('Pending Tasks', []))}
+
+            Projects:
+            {self._format_projects(sanitized_data.get('Projects', []))}
+
+            Productivity Details:
+            Time: {sanitized_data.get('Productive Time', 'Not specified')}
+            Location: {sanitized_data.get('Productive Place', 'Not specified')}
+            
+            Peer Feedback:
+            {self._format_peer_evaluations(sanitized_data.get('Peer_Evaluations', {}))}
+
+            Please provide a comprehensive analysis following the specified format.
+            """
+            
+            # Validate the prompt is not empty
+            if not prompt.strip():
+                raise ValueError("Generated prompt is empty")
+                
+            return prompt
+            
+        except Exception as e:
+            logging.error(f"Error preparing enhanced prompt: {str(e)}")
+            return "Please analyze the weekly performance report and provide actionable feedback."
+
+    def _format_list(self, items: List[str]) -> str:
+        """Format a list of items into a string"""
+        try:
+            if isinstance(items, str):
+                items = [item.strip() for item in items.split('\n') if item.strip()]
+            return "\n".join(f"- {item}" for item in items) if items else "None"
+        except Exception as e:
+            logging.error(f"Error formatting list: {str(e)}")
+            return "None"
+
+    def _format_projects(self, projects: List[Dict[str, Any]]) -> str:
+        """Format projects into a string"""
+        try:
+            if isinstance(projects, str):
+                projects = self._parse_projects_string(projects)
+            if not projects:
+                return "No projects reported"
+            formatted = []
+            for p in projects:
+                try:
+                    name = p.get('name', 'Unnamed')
+                    completion = float(p.get('completion', 0))
+                    formatted.append(f"- {name}: {completion}% complete")
+                except (ValueError, TypeError):
+                    logging.warning(f"Invalid project data: {p}")
+            return "\n".join(formatted) if formatted else "No valid projects reported"
+        except Exception as e:
+            logging.error(f"Error formatting projects: {str(e)}")
+            return "Error formatting projects"
+
+    def _format_peer_evaluations(self, evaluations: Dict[str, Any]) -> str:
+        """Format peer evaluations into a string"""
+        try:
+            if not evaluations:
+                return "No peer evaluations available"
+            if isinstance(evaluations, str):
+                evaluations = self._safe_parse_json(evaluations)
+            formatted = []
+            for name, feedback in evaluations.items():
+                if isinstance(feedback, (int, float)):
+                    formatted.append(f"- {name}: Rating {feedback}")
+                elif isinstance(feedback, dict):
+                    rating = feedback.get('Rating', 'N/A')
+                    comments = feedback.get('Comments', '')
+                    formatted.append(f"- {name}: Rating {rating}{', ' + comments if comments else ''}")
+                else:
+                    formatted.append(f"- {name}: {feedback}")
+            return "\n".join(formatted)
+        except Exception as e:
+            logging.error(f"Error formatting peer evaluations: {str(e)}")
+            return "Error formatting peer evaluations"
+
+    def _sanitize_data(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Sanitize and validate input data"""
+        try:
+            sanitized = data.copy()
+            
+            # Ensure lists are actually lists
+            list_fields = ['Completed Tasks', 'Pending Tasks', 'Dropped Tasks']
+            for field in list_fields:
+                if field in sanitized:
+                    if isinstance(sanitized[field], str):
+                        sanitized[field] = [task.strip() for task in sanitized[field].split('\n') if task.strip()]
+                    elif not isinstance(sanitized[field], list):
+                        sanitized[field] = []
+
+            # Ensure Projects is properly formatted
+            if 'Projects' in sanitized:
+                if isinstance(sanitized['Projects'], str):
+                    sanitized['Projects'] = self._parse_projects_string(sanitized['Projects'])
+                elif not isinstance(sanitized['Projects'], list):
+                    sanitized['Projects'] = []
+
+            # Ensure Peer_Evaluations is a dictionary
+            if 'Peer_Evaluations' in sanitized:
+                if isinstance(sanitized['Peer_Evaluations'], str):
+                    sanitized['Peer_Evaluations'] = self._safe_parse_json(sanitized['Peer_Evaluations'])
+                if not isinstance(sanitized['Peer_Evaluations'], dict):
+                    sanitized['Peer_Evaluations'] = {}
+
+            return sanitized
+        except Exception as e:
+            logging.error(f"Error sanitizing data: {str(e)}")
+            return data
+
+    def _parse_projects_string(self, projects_str: str) -> List[Dict[str, Any]]:
+        """Parse projects string into list of dictionaries"""
+        try:
+            if isinstance(projects_str, list):
+                return projects_str
+            projects = []
+            if isinstance(projects_str, str):
+                try:
+                    # Try to parse as JSON first
+                    return json.loads(projects_str)
+                except json.JSONDecodeError:
+                    # If not JSON, parse as newline-separated text
+                    lines = [line.strip() for line in projects_str.split('\n') if line.strip()]
+                    for line in lines:
+                        if ',' in line:
+                            name, completion = line.split(',', 1)
+                            completion = completion.strip().replace('%', '')
+                            try:
+                                completion = float(completion)
+                            except ValueError:
+                                completion = 0
+                            projects.append({
+                                'name': name.strip(),
+                                'completion': completion
+                            })
+            return projects
+        except Exception as e:
+            logging.error(f"Error parsing projects string: {str(e)}")
+            return []
+
+    def _parse_productivity_rating(self, rating: str) -> float:
+        """Parse productivity rating string to float"""
+        try:
+            if isinstance(rating, (int, float)):
+                return float(rating)
+            if isinstance(rating, str):
+                # Extract first number from string (e.g., "4 - Very Productive" -> 4)
+                import re
+                numbers = re.findall(r'\d+', rating)
+                if numbers:
+                    return float(numbers[0])
+            return 1.0
+        except (ValueError, IndexError):
+            return 1.0
+
+    @handle_exceptions(error_types=(ValueError, TypeError, json.JSONDecodeError))
+    def _get_task_list(self, tasks: Any) -> List[str]:
+        """Convert task input into a properly formatted list of strings.
+        
+        Handles TEXT field format from wpr_data table.
+        
+        Args:
+            tasks: Task input from database TEXT field
+            
+        Returns:
+            List[str]: Properly formatted list of task strings
+        """
+        def parse_tasks() -> List[str]:
+            if isinstance(tasks, str):
+                # Handle TEXT field from database
+                try:
+                    # Try to parse as JSON first
+                    parsed = json.loads(tasks)
+                    if isinstance(parsed, list):
+                        return [str(t).strip() for t in parsed if str(t).strip()]
+                except json.JSONDecodeError:
+                    # If not JSON, split by newlines (legacy format)
+                    return [t.strip() for t in tasks.split('\n') if t.strip()]
+            
+            if isinstance(tasks, list):
+                return [str(t).strip() for t in tasks if str(t).strip()]
+                
+            return []
+            
+        return parse_tasks()
+
+    def save_hr_analysis(self, data: Dict[str, Any], analysis_result: Dict[str, Any]) -> bool:
+        """Save HR analysis results to the database."""
+        try:
+            # Extract employee name with fallbacks
+            employee_name = (
+                data.get('Name') or 
+                data.get('name') or 
+                data.get('Employee Name') or 
+                data.get('employee_name')
+            )
+            
+            if not employee_name:
+                logging.error("Employee name not found in data")
+                raise ValueError("Missing employee name in data")
+            
+            # Remove team info from name if present
+            employee_name = employee_name.split(" (")[0] if " (" in employee_name else employee_name
+            
+            # Create analysis record
+            analysis_record = {
+                'employee_name': employee_name,
+                'team': data.get('Team', 'Unknown'),
+                'week_number': data.get('Week Number', 0),
+                'year': data.get('Year', datetime.now().year),
+                'analysis_content': analysis_result.get('analysis_content', ''),
+                'performance_metrics': json.dumps(analysis_result.get('performance_metrics', {})),
+                'timestamp': datetime.now().isoformat()
+            }
+            
+            # Log the record being saved
+            logging.info(f"Saving HR analysis for employee: {employee_name}")
+            logging.info(f"Analysis record: {json.dumps(analysis_record, indent=2)}")
+            
+            return True
+            
+        except Exception as e:
+            logging.error(f"Error saving HR analysis: {str(e)}")
+            return False
+
+    def _generate_analysis_text(self, data: Dict[str, Any], metrics: Dict[str, Any]) -> str:
+        """Generate analysis text from WPR data and metrics."""
+        try:
+            # Format the analysis text with correct task counts
+            analysis = f"""Weekly Performance Analysis
+Week {data.get('Week Number')} - {datetime.now().strftime('%B %d, %Y')}
+
+Achievement Highlights
+• Self-rated as "{data.get('Productivity Rating', 'N/A')}"
+• Task Completion Rate: {metrics['task_completion_rate']}% ({metrics['completed_tasks']} completed, {metrics['pending_tasks']} pending)
+• Preferred Work Time: {data.get('Productive Time', 'N/A')}
+• Workplace Effectiveness: Shows preference for {data.get('Productive Place', 'N/A')} environment
+
+Performance Metrics
+• Task Management: {metrics['completed_tasks']} tasks completed, {metrics['pending_tasks']} pending
+• Project Progress: {metrics['project_progress']}% overall completion
+• Collaboration Score: {self._get_collaboration_score(data)}
+• Productivity Rating: {metrics['productivity_rating']} out of 5
+
+Growth Opportunities
+{self._generate_growth_opportunities(metrics)}
+
+Action Plan
+{self._generate_action_plan(metrics)}
+
+Team Collaboration
+• Team Impact: {self._assess_team_impact(data)}
+• Peer Feedback: {self._assess_peer_feedback(data)}
+
+Wellness Check
+• Workload Assessment: {self._assess_workload(metrics['total_tasks'])}
+• Engagement Level: {self._assess_engagement(metrics['productivity_rating'])}
+• Work Environment: Effective utilization of {data.get('Productive Place', 'N/A')}
+• Peak Productivity: Observed during {data.get('Productive Time', 'N/A')}
+
+Generated by IOL HR Analysis System"""
+
+            return analysis
+            
+        except Exception as e:
+            logging.error(f"Error generating analysis text: {str(e)}")
+            return "Error generating analysis"
+
+    def _get_collaboration_score(self, data: Dict[str, Any]) -> str:
+        """Calculate collaboration score from peer evaluations."""
+        try:
+            peer_evals = json.loads(data.get('Peer_Evaluations', '{}'))
+            if not peer_evals:
+                return "N/A based on peer evaluations"
+            avg_score = sum(peer_evals.values()) / len(peer_evals)
+            return f"{avg_score:.1f} out of 5"
+        except:
+            return "N/A based on peer evaluations"
+
+    def _generate_growth_opportunities(self, metrics: Dict[str, Any]) -> str:
+        """Generate growth opportunities based on metrics."""
+        opportunities = []
+        
+        if metrics['task_completion_rate'] < 70:
+            opportunities.append("• Focus on task completion and time management")
+        if metrics['project_progress'] < 80:
+            opportunities.append("• Accelerate project delivery pace")
+        if metrics['productivity_rating'] < 4:
+            opportunities.append("• Identify and address productivity blockers")
+            
+        return "\n".join(opportunities) if opportunities else "• Continue maintaining current performance levels"
+
+    def _generate_action_plan(self, metrics: Dict[str, Any]) -> str:
+        """Generate action plan based on metrics."""
+        actions = []
+        
+        if metrics['pending_tasks'] > metrics['completed_tasks']:
+            actions.append("• Prioritize completing pending tasks")
+        if metrics['project_progress'] < 100:
+            actions.append("• Set milestones for project completion")
+            
+        return "\n".join(actions) if actions else "• Maintain current momentum"
+
+    def _assess_team_impact(self, data: Dict[str, Any]) -> str:
+        """Assess team impact based on peer evaluations."""
+        try:
+            peer_evals = json.loads(data.get('Peer_Evaluations', '{}'))
+            return "Strong team collaboration evident" if peer_evals else "Continue fostering team collaboration"
+        except:
+            return "Continue fostering team collaboration"
+
+    def _assess_peer_feedback(self, data: Dict[str, Any]) -> str:
+        """Assess peer feedback."""
+        try:
+            peer_evals = json.loads(data.get('Peer_Evaluations', '{}'))
+            return "Positive peer feedback received" if peer_evals else "Maintain open communication with team members"
+        except:
+            return "Maintain open communication with team members"
+
+    def _assess_workload(self, total_tasks: int) -> str:
+        """Assess workload based on total tasks."""
+        if total_tasks > 10:
+            return "High"
+        elif total_tasks > 5:
+            return "Moderate"
+        return "Balanced"
+
+    def _assess_engagement(self, rating: float) -> str:
+        """Assess engagement based on productivity rating."""
+        if rating >= 4:
+            return "High"
+        elif rating >= 3:
+            return "Good"
+        return "Needs improvement"

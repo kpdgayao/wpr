@@ -5,11 +5,19 @@ from typing import List, Dict, Optional
 import logging
 
 class Config:
+    """Configuration settings"""
+    
     def __init__(self):
         """Initialize configuration settings"""
         try:
             # Load environment variables
-            load_dotenv()
+            dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
+            logging.info(f"Loading .env file from: {dotenv_path}")
+            if os.path.exists(dotenv_path):
+                load_dotenv(dotenv_path)
+                logging.info(".env file found and loaded")
+            else:
+                logging.error(f".env file not found at {dotenv_path}")
             
             # Database configuration (required)
             self.SUPABASE_URL = self._get_env_var("SUPABASE_URL")
@@ -18,7 +26,27 @@ class Config:
             # Email configuration (optional)
             self.MAILJET_API_KEY = os.getenv("MAILJET_API_KEY")
             self.MAILJET_API_SECRET = os.getenv("MAILJET_API_SECRET")
+            
+            # Log environment variables
+            env_vars = dict(os.environ)
+            logging.info("Environment variables loaded:")
+            for key in ['MAILJET_API_KEY', 'MAILJET_API_SECRET']:
+                if key in env_vars:
+                    value = env_vars[key]
+                    masked_value = value[:4] + '*' * (len(value) - 4) if value else None
+                    logging.info(f"{key}: {masked_value}")
+                else:
+                    logging.error(f"{key} not found in environment variables")
+            
+            # AI configuration (optional)
             self.ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
+            
+            # Log loaded configuration
+            logging.info("Configuration initialized successfully")
+            if self.MAILJET_API_KEY and self.MAILJET_API_SECRET:
+                logging.info("Email configuration found")
+            if self.ANTHROPIC_API_KEY:
+                logging.info("AI configuration found")
             
             # Teams configuration
             self.TEAMS: Dict[str, List[str]] = {
@@ -68,11 +96,10 @@ class Config:
             # Work locations
             self.WORK_LOCATIONS: List[str] = ["Office", "Home"]
             
-            logging.info("Configuration initialized successfully")
         except Exception as e:
             logging.error(f"Error initializing configuration: {str(e)}")
             raise
-
+    
     def load_email_config(self) -> bool:
         """
         Load email-related configuration.
@@ -88,10 +115,10 @@ class Config:
             return False
 
     def _get_env_var(self, var_name: str) -> str:
-        """Get environment variable with error handling"""
+        """Get required environment variable"""
         value = os.getenv(var_name)
         if not value:
-            raise ValueError(f"Environment variable {var_name} not found")
+            raise ValueError(f"Required environment variable {var_name} not found")
         return value
 
     def get_all_team_members(self) -> List[str]:

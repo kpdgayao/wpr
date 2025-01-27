@@ -1,6 +1,31 @@
-<<<<<<< HEAD
-.env
-=======
+# Environment variables
 .env
 .streamlit/secrets.toml
->>>>>>> 9a4734916d3d05ecdc6353c0ce51bbe39a1d3cdd
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+ENV/
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs
+*.log
+
+# Local development
+.DS_Store
+Thumbs.db
