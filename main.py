@@ -201,7 +201,7 @@ class WPRApp:
                 else:
                     try:
                         # 1. Save data to database first
-                        data = self.db.save_wpr_data(form_data)
+                        data = self.db.save_data(form_data)
                         logging.info(f"Data saved successfully: {data}")
                         
                         # 2. Show processing message
@@ -234,19 +234,18 @@ class WPRApp:
                                 logging.error(f"Failed to send email: {str(e)}")
                         
                         # 5. Set success message based on email status
+                        success_msg = "✅ WPR submitted successfully!"
                         if email_sent:
-                            st.session_state.success_message = "✅ WPR submitted successfully! An email confirmation has been sent to your inbox."
-                        else:
-                            st.session_state.success_message = "✅ WPR submitted successfully!"
+                            success_msg += " An email confirmation has been sent to your inbox."
                         
-                        # 6. Reset form state and show balloons
+                        # 6. Update session state
                         st.session_state.submitted = True
                         st.session_state.form_data = {}
                         st.balloons()
                         
-                        # 7. Rerun to show success message
-                        time.sleep(1)  # Give time for the message to be seen
-                        st.rerun()
+                        # 7. Show success message
+                        with message_container:
+                            st.success(success_msg)
                         
                         return True
                         
