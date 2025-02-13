@@ -10,36 +10,12 @@ class Config:
     def __init__(self):
         """Initialize configuration settings"""
         try:
-            # Load environment variables
-            dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
-            logging.info(f"Loading .env file from: {dotenv_path}")
-            if os.path.exists(dotenv_path):
-                load_dotenv(dotenv_path)
-                logging.info(".env file found and loaded")
-            else:
-                logging.error(f".env file not found at {dotenv_path}")
+            # Try to load from streamlit secrets first
+            self._load_from_streamlit_secrets()
             
-            # Database configuration (required)
-            self.SUPABASE_URL = self._get_env_var("SUPABASE_URL")
-            self.SUPABASE_KEY = self._get_env_var("SUPABASE_KEY")
-            
-            # Email configuration (optional)
-            self.MAILJET_API_KEY = os.getenv("MAILJET_API_KEY")
-            self.MAILJET_API_SECRET = os.getenv("MAILJET_API_SECRET")
-            
-            # Log environment variables
-            env_vars = dict(os.environ)
-            logging.info("Environment variables loaded:")
-            for key in ['MAILJET_API_KEY', 'MAILJET_API_SECRET']:
-                if key in env_vars:
-                    value = env_vars[key]
-                    masked_value = value[:4] + '*' * (len(value) - 4) if value else None
-                    logging.info(f"{key}: {masked_value}")
-                else:
-                    logging.error(f"{key} not found in environment variables")
-            
-            # AI configuration (optional)
-            self.ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
+            # If not running on streamlit cloud, try loading from .env
+            if not self.SUPABASE_URL or not self.SUPABASE_KEY:
+                self._load_from_env_file()
             
             # Log loaded configuration
             logging.info("Configuration initialized successfully")
@@ -147,3 +123,62 @@ class Config:
         except Exception as e:
             logging.error(f"Error getting team for member {member_name}: {str(e)}")
             return None
+
+    def _load_from_streamlit_secrets(self):
+        """Load configuration from Streamlit secrets"""
+        try:
+            import streamlit as st
+            # Get environment variables from streamlit secrets
+            self.SUPABASE_URL = st.secrets.get("env", {}).get("SUPABASE_URL")
+            self.SUPABASE_KEY = st.secrets.get("env", {}).get("SUPABASE_KEY")
+            self.MAILJET_API_KEY = st.secrets.get("env", {}).get("MAILJET_API_KEY")
+            self.MAILJET_API_SECRET = st.secrets.get("env", {}).get("MAILJET_API_SECRET")
+            self.ANTHROPIC_API_KEY = st.secrets.get("env", {}).get("ANTHROPIC_API_KEY")
+            
+            if self.SUPABASE_URL and self.SUPABASE_KEY:
+                logging.info("Configuration loaded from Streamlit secrets")
+        except Exception as e:
+            logging.warning(f"Could not load from Streamlit secrets: {str(e)}")
+            self.SUPABASE_URL = None
+            self.SUPABASE_KEY = None
+            self.MAILJET_API_KEY = None
+            self.MAILJET_API_SECRET = None
+            self.ANTHROPIC_API_KEY = None
+
+    def _load_from_env_file(self):
+        """Load configuration from .env file"""
+        try:
+            # Load environment variables
+            dotenv_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
+            logging.info(f"Loading .env file from: {dotenv_path}")
+            if os.path.exists(dotenv_path):
+                load_dotenv(dotenv_path)
+                logging.info(".env file found and loaded")
+            else:
+                logging.warning(f".env file not found at {dotenv_path}")
+            
+            # Database configuration (required)
+            self.SUPABASE_URL = self._get_env_var("SUPABASE_URL")
+            self.SUPABASE_KEY = self._get_env_var("SUPABASE_KEY")
+            
+            # Email configuration (optional)
+            self.MAILJET_API_KEY = os.getenv("MAILJET_API_KEY")
+            self.MAILJET_API_SECRET = os.getenv("MAILJET_API_SECRET")
+            
+            # AI configuration (optional)
+            self.ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
+            
+            # Log environment variables
+            env_vars = dict(os.environ)
+            logging.info("Environment variables loaded:")
+            for key in ['MAILJET_API_KEY', 'MAILJET_API_SECRET']:
+                if key in env_vars:
+                    value = env_vars[key]
+                    masked_value = value[:4] + '*' * (len(value) - 4) if value else None
+                    logging.info(f"{key}: {masked_value}")
+                else:
+                    logging.warning(f"{key} not found in environment variables")
+                    
+        except Exception as e:
+            logging.error(f"Error loading from .env file: {str(e)}")
+            raise
