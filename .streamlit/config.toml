@@ -1,0 +1,13 @@
+[server]
+# Limit the number of files that Streamlit watches for changes
+fileWatcherType = "poll"
+# Set a longer polling interval to reduce resource usage
+fileWatcherPollingIntervalSecs = 5
+
+[global]
+# Disable the spinner animation to reduce resource usage
+showWarningOnDirectExecution = false
+disableWatchdogWarning = true
+
+[logger]
+level = "info"

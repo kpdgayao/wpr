@@ -2,15 +2,21 @@
 .env
 .streamlit/secrets.toml
 
-# Python
+# Virtual Environment
+.venv/
+venv/
+
+# Python cache files
 __pycache__/
 *.py[cod]
 *$py.class
-*.so
-.Python
-.venv/
-venv/
-ENV/
+
+# Streamlit
+.streamlit/secrets.toml
+
+# Logs
+*.log
+logs/
 
 # Distribution / packaging
 dist/
@@ -22,9 +28,6 @@ build/
 .vscode/
 *.swp
 *.swo
-
-# Logs
-*.log
 
 # Local development
 .DS_Store
